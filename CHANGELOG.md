@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.5] — 2026-05-10
+
+### Changed
+
+- Depend on **`kotonoha_core`** **`v0.1.4`** — `interchange store` now persists **`interchange_documents`** plus derived **`lineage_units`** / **`rde_documents`** in **one transaction** when the envelope includes those payloads.
+
 ## [0.1.4] — 2026-05-10
 
 ### Added

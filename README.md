@@ -67,11 +67,11 @@ export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
-The new row’s UUID is printed to **stdout**.
+The new interchange row’s UUID is printed to **stdout**. When the envelope includes **`lineage_unit`** and/or **`rde_document`**, matching rows are written to **`lineage_units`** and **`rde_documents`** in the **same database transaction** (`kotonoha_core` **0.1.4+**).
 
 ## `kotonoha-core` dependency
 
-The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.3`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag v0.1.3` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for the targeted release, then `git tag v0.1.3 && git push origin v0.1.3` (or the new semver tag referenced in `Cargo.toml`).
+The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.4`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag …` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for the targeted release, then push the semver tag referenced in `Cargo.toml` (for example `git tag v0.1.4 && git push origin v0.1.4`).
 
 To build **`kotonoha-cli`** against a **local** `kotonoha-core` checkout (e.g. tag not pushed yet), add a Cargo **[patch]** (for example in `~/.cargo/config.toml`; adjust the path):
 
