@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+
+# Build artifacts (language-specific entries added when implementation lands)
+/target/
+/dist/
+/build/
+*.exe
+*.dll
+*.so
+*.dylib
