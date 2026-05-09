@@ -35,6 +35,7 @@ Subcommand groups:
 | --- | --- |
 | `kotonoha version` | Report CLI and targeted specification compatibility. |
 | `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
+| `kotonoha interchange` | Validate / emit **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). |
 
 ### Concrete signatures (release **0.1.x**)
 
@@ -44,8 +45,10 @@ Subcommand groups:
 | `kotonoha version` | Prints **two lines** to stdout: (1) `kotonoha <crate semver>` (2) `kotonoha-spec (target bundle): 0.1`. Exit **0**. |
 | `kotonoha rde validate [--strict] [PATH]` | Reads JSON from **PATH**, or from **stdin** when PATH is omitted or `-`. Validates Phase 1 interchange (`spec_version` **MUST** be `0.1`). Items missing `summary` emit **warnings** on stderr unless `--strict`, then exit **2**. Malformed args / unreadable file / invalid UTF-8 → exit **1**. Validation failure → exit **2**. Success → exit **0**. |
 | `kotonoha rde emit` | Writes a **minimal compliant** JSON skeleton (pretty-printed) to stdout. Exit **0**. |
+| `kotonoha interchange validate [--strict] [PATH]` | Validates **`kotonoha.interchange.v1`** envelope (`format`, `spec_bundle`, optional `lineage_unit`, optional `rde_document`). Nested RDE uses the same `--strict` semantics as `rde validate`. Exit codes identical pattern to `rde validate`. |
+| `kotonoha interchange emit` | Writes a **minimal lineage-only** envelope skeleton (pretty-printed) to stdout. Exit **0**. |
 
-Implementation notes: **`kotonoha` ≥ 0.1.1** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.0`**). RDE validation lives in `kotonoha_core::rde`; see [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
+Implementation notes: **`kotonoha` ≥ 0.1.1** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.1`**). RDE validation lives in `kotonoha_core::rde`; interchange envelopes in `kotonoha_core::interchange`. See [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
 
 ### Exit codes (minimum contract)
 
@@ -60,7 +63,7 @@ Implementations **MAY** extend codes with documentation.
 
 ## 5. Relationship to `kotonoha-core`
 
-The CLI **delegates** RDE interchange validation to the **`kotonoha_core`** crate ([`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core)), keeping this repository focused on **argument parsing, IO, and UX**. Future lineage commands **SHOULD** follow the same pattern.
+The CLI **delegates** RDE validation and **interchange envelope** validation to the **`kotonoha_core`** crate ([`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core)), keeping this repository focused on **argument parsing, IO, and UX**. Future lineage commands **SHOULD** follow the same pattern.
 
 ## 6. Traceability matrix (normative intent)
 
@@ -70,6 +73,7 @@ The CLI **delegates** RDE interchange validation to the **`kotonoha_core`** crat
 | Loss representation obligations | [`docs/representation-of-loss.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/representation-of-loss.md) |
 | Semantic lineage unit | [`docs/semantic-lineage-model.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/semantic-lineage-model.md) |
 | Conformance keywords | [`docs/introduction.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/introduction.md) |
+| Interchange envelope (`interchange` subcommands) | *(not normative in spec)* — implementation in [`kotonoha-core` `interchange`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/interchange.rs); aligns `spec_bundle` / lineage / nested RDE with spec sections above |
 
 This table **MUST** be updated when new commands tie to additional specification sections.
 
@@ -89,3 +93,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | --- | --- |
 | 2026-05-10 | Initial public definition for Phase 2 gate. |
 | 2026-05-10 | Concrete signatures for Rust CLI **0.1.0** (`version`, `rde validate`, `rde emit`). |
+| 2026-05-10 | **`interchange`** subcommands (**0.1.2**); core tag **`v0.1.1`**. |

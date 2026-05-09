@@ -38,12 +38,15 @@ cargo build --release
 ./target/release/kotonoha version
 ./target/release/kotonoha rde emit
 ./target/release/kotonoha rde validate path/to/file.json
+./target/release/kotonoha interchange emit
+./target/release/kotonoha interchange validate path/to/envelope.json
 ```
 
 Pipe JSON on stdin (omit path or use `-`):
 
 ```bash
 ./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
+./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
 ```
 
 Use `--strict` to treat missing `summary` on category items as errors (see `kotonoha-spec`).

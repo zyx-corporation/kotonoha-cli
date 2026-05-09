@@ -1,6 +1,7 @@
 //! `kotonoha` — CLI entry (argument parsing and UX). Domain logic comes from [`kotonoha_core`].
 
 use std::io::{self, Read};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 
@@ -26,6 +27,11 @@ enum Commands {
         #[command(subcommand)]
         action: RdeAction,
     },
+    /// Bundled lineage +/or RDE JSON envelope (`kotonoha.interchange.v1`, core-supported).
+    Interchange {
+        #[command(subcommand)]
+        action: InterchangeAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -42,6 +48,17 @@ enum RdeAction {
     Emit,
 }
 
+#[derive(Subcommand)]
+enum InterchangeAction {
+    /// Validate `kotonoha.interchange.v1` envelope JSON (optional nested RDE document).
+    Validate {
+        #[arg(long)]
+        strict: bool,
+        path: Option<PathBuf>,
+    },
+    Emit,
+}
+
 fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
@@ -49,6 +66,12 @@ fn main() {
         Commands::Rde { action } => match action {
             RdeAction::Validate { strict, path } => cmd_rde_validate(strict, path.as_deref()),
             RdeAction::Emit => cmd_rde_emit(),
+        },
+        Commands::Interchange { action } => match action {
+            InterchangeAction::Validate { strict, path } => {
+                cmd_interchange_validate(strict, path.as_deref())
+            }
+            InterchangeAction::Emit => cmd_interchange_emit(),
         },
     };
     process::exit(code);
@@ -86,20 +109,30 @@ fn cmd_rde_emit() -> i32 {
     0
 }
 
-fn cmd_rde_validate(strict: bool, path: Option<&std::path::Path>) -> i32 {
-    let mut buf = Vec::new();
-    match load_input(path, &mut buf) {
-        Ok(()) => {}
-        Err(e) => {
-            eprintln!("{}", e);
-            return 1;
+fn cmd_interchange_emit() -> i32 {
+    let skeleton = serde_json::json!({
+        "format": kotonoha_core::interchange::INTERCHANGE_FORMAT_V1,
+        "spec_bundle": kotonoha_core::TARGET_SPEC_BUNDLE,
+        "lineage_unit": {
+            "id": "https://example.invalid/lineage/REPLACE",
+            "prior_unit_id": null
         }
-    }
-    let text = match String::from_utf8(buf) {
-        Ok(s) => s,
-        Err(_) => {
-            eprintln!("input is not valid UTF-8");
-            return 1;
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&skeleton).unwrap_or_else(|_| "{}".to_string())
+    );
+    0
+}
+
+fn cmd_rde_validate(strict: bool, path: Option<&Path>) -> i32 {
+    let text = match read_input_text(path) {
+        Ok(t) => t,
+        Err((code, msg)) => {
+            if let Some(m) = msg {
+                eprintln!("{}", m);
+            }
+            return code;
         }
     };
     match kotonoha_core::rde::validate_json(&text, strict) {
@@ -116,7 +149,41 @@ fn cmd_rde_validate(strict: bool, path: Option<&std::path::Path>) -> i32 {
     }
 }
 
-fn load_input(path: Option<&std::path::Path>, buf: &mut Vec<u8>) -> Result<(), String> {
+fn cmd_interchange_validate(strict: bool, path: Option<&Path>) -> i32 {
+    let text = match read_input_text(path) {
+        Ok(t) => t,
+        Err((code, msg)) => {
+            if let Some(m) = msg {
+                eprintln!("{}", m);
+            }
+            return code;
+        }
+    };
+    match kotonoha_core::interchange::validate_interchange_json(&text, strict) {
+        Ok(warnings) => {
+            for w in warnings {
+                eprintln!("warning: {}", w);
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            2
+        }
+    }
+}
+
+/// Returns `(exit_code, Option<error_message>)` on I/O or UTF-8 failure.
+fn read_input_text(path: Option<&Path>) -> Result<String, (i32, Option<String>)> {
+    let mut buf = Vec::new();
+    match load_input(path, &mut buf) {
+        Ok(()) => {}
+        Err(e) => return Err((1, Some(e))),
+    }
+    String::from_utf8(buf).map_err(|_| (1, Some("input is not valid UTF-8".to_string())))
+}
+
+fn load_input(path: Option<&Path>, buf: &mut Vec<u8>) -> Result<(), String> {
     match path {
         None => io::stdin()
             .read_to_end(buf)

@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] — 2026-05-10
+
+### Added
+
+- `kotonoha interchange validate` / `kotonoha interchange emit` using [`kotonoha_core::interchange`](https://github.com/zyx-corporation/kotonoha-core) (`kotonoha.interchange.v1` envelope).
+
+### Changed
+
+- Depend on **`kotonoha_core` `v0.1.1`** (interchange module).
+
 ## [0.1.1] — 2026-05-10
 
 ### Changed

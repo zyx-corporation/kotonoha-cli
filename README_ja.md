@@ -20,6 +20,7 @@
 cargo build --release
 ./target/release/kotonoha version
 ./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
+./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
 ```
 
 ## 関連リポジトリ
