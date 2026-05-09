@@ -51,6 +51,26 @@ Pipe JSON on stdin (omit path or use `-`):
 
 Use `--strict` to treat missing `summary` on category items as errors (see `kotonoha-spec`).
 
+PostgreSQL migrations (requires `DATABASE_URL`, same URL shape as [`kotonoha-core` `docker-compose.yml`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docker-compose.yml)):
+
+```bash
+export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
+./target/release/kotonoha db migrate
+```
+
+## `kotonoha-core` dependency
+
+The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.2`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag v0.1.2` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for **0.1.2**, then `git tag v0.1.2 && git push origin v0.1.2`.
+
+To build **`kotonoha-cli`** against a **local** `kotonoha-core` checkout (e.g. tag not pushed yet), add a Cargo **[patch]** (for example in `~/.cargo/config.toml`; adjust the path):
+
+```toml
+[patch."https://github.com/zyx-corporation/kotonoha-core.git"]
+kotonoha_core = { path = "/path/to/kotonoha-core" }
+```
+
+Requested dependency features (for example **`postgres`**) still come from **`Cargo.toml`** on this crate.
+
 ## Links
 
 - Repository: https://github.com/zyx-corporation/kotonoha-cli

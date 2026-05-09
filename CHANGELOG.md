@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] — 2026-05-10
+
+### Added
+
+- `kotonoha db migrate` — applies SQL migrations from [`kotonoha-core` `migrations/`](https://github.com/zyx-corporation/kotonoha-core/tree/main/migrations) via [`kotonoha_core::store::postgres::PgStore`](https://github.com/zyx-corporation/kotonoha-core) (requires `DATABASE_URL`).
+
+### Changed
+
+- Depend on **`kotonoha_core`** at Git tag **`v0.1.2`** with feature **`postgres`** (`Cargo.toml` Git dependency on [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core)).
+
+### Notes
+
+- **`cargo build` / CI** resolve **`kotonoha_core`** from Git tag **`v0.1.2`** on [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core). For an unpublished local core checkout, use a Cargo **`[patch]`** (see [README.md](README.md)).
+
 ## [0.1.2] — 2026-05-10
 
 ### Added

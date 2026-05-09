@@ -1,6 +1,9 @@
 # OS
 .DS_Store
 
+# Local Cargo overrides (e.g. `[patch]` to a path checkout of `kotonoha-core`)
+/.cargo/
+
 # Build artifacts (language-specific entries added when implementation lands)
 /target/
 /dist/

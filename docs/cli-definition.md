@@ -34,6 +34,7 @@ Subcommand groups:
 | Group | Intent |
 | --- | --- |
 | `kotonoha version` | Report CLI and targeted specification compatibility. |
+| `kotonoha db` | Apply **PostgreSQL** migrations shipped with `kotonoha-core` (requires `DATABASE_URL`). |
 | `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
 | `kotonoha interchange` | Validate / emit **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). |
 
@@ -43,12 +44,13 @@ Subcommand groups:
 | --- | --- |
 | `kotonoha` | Prints help (same as `--help`). Global `--version` prints short version via Clap. |
 | `kotonoha version` | Prints **two lines** to stdout: (1) `kotonoha <crate semver>` (2) `kotonoha-spec (target bundle): 0.1`. Exit **0**. |
+| `kotonoha db migrate` | Reads **`DATABASE_URL`**, connects with SQLx, applies migrations from `kotonoha-core/migrations`. Missing env → exit **1**. Connection / migration failure → exit **3**. Success prints one confirmation line to stdout → exit **0**. |
 | `kotonoha rde validate [--strict] [PATH]` | Reads JSON from **PATH**, or from **stdin** when PATH is omitted or `-`. Validates Phase 1 interchange (`spec_version` **MUST** be `0.1`). Items missing `summary` emit **warnings** on stderr unless `--strict`, then exit **2**. Malformed args / unreadable file / invalid UTF-8 → exit **1**. Validation failure → exit **2**. Success → exit **0**. |
 | `kotonoha rde emit` | Writes a **minimal compliant** JSON skeleton (pretty-printed) to stdout. Exit **0**. |
 | `kotonoha interchange validate [--strict] [PATH]` | Validates **`kotonoha.interchange.v1`** envelope (`format`, `spec_bundle`, optional `lineage_unit`, optional `rde_document`). Nested RDE uses the same `--strict` semantics as `rde validate`. Exit codes identical pattern to `rde validate`. |
 | `kotonoha interchange emit` | Writes a **minimal lineage-only** envelope skeleton (pretty-printed) to stdout. Exit **0**. |
 
-Implementation notes: **`kotonoha` ≥ 0.1.1** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.1`**). RDE validation lives in `kotonoha_core::rde`; interchange envelopes in `kotonoha_core::interchange`. See [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
+Implementation notes: **`kotonoha` ≥ 0.1.3** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.2`**, feature **`postgres`**, for `db` commands). Local development MAY override via Cargo **`[patch]`** to a path checkout. RDE validation lives in `kotonoha_core::rde`; interchange envelopes in `kotonoha_core::interchange`; migrations and pool helpers in `kotonoha_core::store::postgres`. See [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
 
 ### Exit codes (minimum contract)
 
@@ -69,6 +71,7 @@ The CLI **delegates** RDE validation and **interchange envelope** validation to 
 
 | CLI concern | `kotonoha-spec` reference |
 | --- | --- |
+| PostgreSQL migrations (`db migrate`) | *(not normative)* — DDL sketch in [`kotonoha-core` migrations](https://github.com/zyx-corporation/kotonoha-core/tree/main/migrations); correlates with [`audit-trail-relationship.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/audit-trail-relationship.md) only at deployment level |
 | RDE review output shape | [`docs/rde-review-output.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/rde-review-output.md) |
 | Loss representation obligations | [`docs/representation-of-loss.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/representation-of-loss.md) |
 | Semantic lineage unit | [`docs/semantic-lineage-model.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/semantic-lineage-model.md) |

@@ -23,6 +23,26 @@ cargo build --release
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
 ```
 
+PostgreSQL のマイグレーション（`DATABASE_URL` が必要。[`kotonoha-core` の `docker-compose.yml`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docker-compose.yml) と同じ接続形の例）:
+
+```bash
+export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
+./target/release/kotonoha db migrate
+```
+
+## `kotonoha-core` との依存関係
+
+CLI は [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) を **`Cargo.toml` の Git 依存**で、タグ **`v0.1.2`**・機能 **`postgres`** として取り込みます。GitHub 上に **`v0.1.2` タグが無いと** `cargo build` は依存取得で失敗します。運用では `kotonoha-core` の **0.1.2** 相当をマージしたうえで `git tag v0.1.2 && git push origin v0.1.2` を行ってください。
+
+ローカルの `kotonoha-core` を参照してビルドする場合は、Cargo の **[patch]**（例: `~/.cargo/config.toml`、パスは環境に合わせる）で上書きできます。
+
+```toml
+[patch."https://github.com/zyx-corporation/kotonoha-core.git"]
+kotonoha_core = { path = "/path/to/kotonoha-core" }
+```
+
+（**`postgres`** などの機能指定は、この CLI の `Cargo.toml` 側の依存定義がそのまま効きます。）
+
 ## 関連リポジトリ
 
 | リポジトリ | 役割 |

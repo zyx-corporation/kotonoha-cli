@@ -22,6 +22,11 @@ struct Cli {
 enum Commands {
     /// Print CLI build identity and targeted specification bundle version.
     Version,
+    /// PostgreSQL operations (`DATABASE_URL`; migrations ship with `kotonoha-core`).
+    Db {
+        #[command(subcommand)]
+        action: DbAction,
+    },
     /// RDE review output interchange (validate / emit skeleton).
     Rde {
         #[command(subcommand)]
@@ -32,6 +37,12 @@ enum Commands {
         #[command(subcommand)]
         action: InterchangeAction,
     },
+}
+
+#[derive(Subcommand)]
+enum DbAction {
+    /// Apply DDL migrations from `kotonoha-core/migrations` via SQLx.
+    Migrate,
 }
 
 #[derive(Subcommand)]
@@ -59,10 +70,14 @@ enum InterchangeAction {
     Emit,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
         Commands::Version => cmd_version(),
+        Commands::Db { action } => match action {
+            DbAction::Migrate => cmd_db_migrate().await,
+        },
         Commands::Rde { action } => match action {
             RdeAction::Validate { strict, path } => cmd_rde_validate(strict, path.as_deref()),
             RdeAction::Emit => cmd_rde_emit(),
@@ -75,6 +90,33 @@ fn main() {
         },
     };
     process::exit(code);
+}
+
+async fn cmd_db_migrate() -> i32 {
+    let url = match std::env::var("DATABASE_URL") {
+        Ok(u) => u,
+        Err(_) => {
+            eprintln!("DATABASE_URL is not set");
+            return 1;
+        }
+    };
+    let store = match kotonoha_core::store::postgres::PgStore::connect(&url).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("database connection failed: {e}");
+            return 3;
+        }
+    };
+    match store.migrate().await {
+        Ok(()) => {
+            println!("migrations applied successfully");
+            0
+        }
+        Err(e) => {
+            eprintln!("migration failed: {e}");
+            3
+        }
+    }
 }
 
 fn cmd_version() -> i32 {
