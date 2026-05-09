@@ -29,14 +29,23 @@ Implementations **MAY** ship additional commands; they **MUST** be listed in thi
 
 ## 4. Command surface (initial)
 
-Subcommand groups (stable names **SHOULD** follow this shape):
+Subcommand groups:
 
 | Group | Intent |
 | --- | --- |
 | `kotonoha version` | Report CLI and targeted specification compatibility. |
-| `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, optional emit skeleton). |
+| `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
 
-Concrete signatures, exit codes, and stderr conventions **MUST** be documented in this file as they stabilize (patch-level updates).
+### Concrete signatures (release **0.1.x**)
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha` | Prints help (same as `--help`). Global `--version` prints short version via Clap. |
+| `kotonoha version` | Prints **two lines** to stdout: (1) `kotonoha <crate semver>` (2) `kotonoha-spec (target bundle): 0.1`. Exit **0**. |
+| `kotonoha rde validate [--strict] [PATH]` | Reads JSON from **PATH**, or from **stdin** when PATH is omitted or `-`. Validates Phase 1 interchange (`spec_version` **MUST** be `0.1`). Items missing `summary` emit **warnings** on stderr unless `--strict`, then exit **2**. Malformed args / unreadable file / invalid UTF-8 → exit **1**. Validation failure → exit **2**. Success → exit **0**. |
+| `kotonoha rde emit` | Writes a **minimal compliant** JSON skeleton (pretty-printed) to stdout. Exit **0**. |
+
+Implementation notes for **0.1.x**: validation logic lives in this repository (`src/rde_validate.rs`) until shared libraries exist in [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core); see [CHANGELOG.md](../CHANGELOG.md).
 
 ### Exit codes (minimum contract)
 
@@ -79,3 +88,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | Date | Change |
 | --- | --- |
 | 2026-05-10 | Initial public definition for Phase 2 gate. |
+| 2026-05-10 | Concrete signatures for Rust CLI **0.1.0** (`version`, `rde validate`, `rde emit`). |

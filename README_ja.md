@@ -12,6 +12,16 @@
 | --- | --- |
 | [docs/cli-definition.md](docs/cli-definition.md) | `kotonoha` のコマンド境界・[`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec) へのトレース |
 
+## ビルド（ソースから）
+
+[Rust](https://www.rust-lang.org/tools/install) が必要です。
+
+```bash
+cargo build --release
+./target/release/kotonoha version
+./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
+```
+
 ## 関連リポジトリ
 
 | リポジトリ | 役割 |

@@ -29,6 +29,25 @@ Normative technical contracts for interchange and lineage remain in [`kotonoha-s
 
 Unless otherwise stated in a specific file, repository content is licensed under the [Apache License 2.0](LICENSE).
 
+## Quickstart (build from source)
+
+Requires [Rust](https://www.rust-lang.org/tools/install) (stable, MSRV in `Cargo.toml`).
+
+```bash
+cargo build --release
+./target/release/kotonoha version
+./target/release/kotonoha rde emit
+./target/release/kotonoha rde validate path/to/file.json
+```
+
+Pipe JSON on stdin (omit path or use `-`):
+
+```bash
+./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
+```
+
+Use `--strict` to treat missing `summary` on category items as errors (see `kotonoha-spec`).
+
 ## Links
 
 - Repository: https://github.com/zyx-corporation/kotonoha-cli
