@@ -45,7 +45,7 @@ Subcommand groups:
 | `kotonoha rde validate [--strict] [PATH]` | Reads JSON from **PATH**, or from **stdin** when PATH is omitted or `-`. Validates Phase 1 interchange (`spec_version` **MUST** be `0.1`). Items missing `summary` emit **warnings** on stderr unless `--strict`, then exit **2**. Malformed args / unreadable file / invalid UTF-8 → exit **1**. Validation failure → exit **2**. Success → exit **0**. |
 | `kotonoha rde emit` | Writes a **minimal compliant** JSON skeleton (pretty-printed) to stdout. Exit **0**. |
 
-Implementation notes for **0.1.x**: validation logic lives in this repository (`src/rde_validate.rs`) until shared libraries exist in [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core); see [CHANGELOG.md](../CHANGELOG.md).
+Implementation notes: **`kotonoha` ≥ 0.1.1** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.0`**). RDE validation lives in `kotonoha_core::rde`; see [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
 
 ### Exit codes (minimum contract)
 
@@ -60,7 +60,7 @@ Implementations **MAY** extend codes with documentation.
 
 ## 5. Relationship to `kotonoha-core`
 
-The CLI **SHOULD** delegate domain logic to [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) libraries where available, keeping this repository focused on **argument parsing, IO, and UX**. Where core is not yet available, temporary in-repo logic **MUST** be flagged as transitional in [CHANGELOG.md](../CHANGELOG.md).
+The CLI **delegates** RDE interchange validation to the **`kotonoha_core`** crate ([`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core)), keeping this repository focused on **argument parsing, IO, and UX**. Future lineage commands **SHOULD** follow the same pattern.
 
 ## 6. Traceability matrix (normative intent)
 

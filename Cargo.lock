@@ -118,9 +118,19 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "kotonoha-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
+ "kotonoha_core",
+ "serde_json",
+]
+
+[[package]]
+name = "kotonoha_core"
+version = "0.1.0"
+source = "git+https://github.com/zyx-corporation/kotonoha-core.git?tag=v0.1.0#171fc99db68703754ba8eb34d77964be914cfc62"
+dependencies = [
+ "serde",
  "serde_json",
 ]
 
@@ -161,6 +171,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]

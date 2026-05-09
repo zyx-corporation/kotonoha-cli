@@ -1,15 +1,10 @@
-//! `kotonoha` — CLI entry (argument parsing and UX). Validation logic is in-repo until shared libraries ship in `kotonoha-core`.
-
-mod rde_validate;
+//! `kotonoha` — CLI entry (argument parsing and UX). Domain logic comes from [`kotonoha_core`].
 
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand};
-
-/// Target [`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec) bundle this CLI tracks for interchange validation.
-pub const TARGET_SPEC_BUNDLE: &str = "0.1";
 
 #[derive(Parser)]
 #[command(name = "kotonoha")]
@@ -61,14 +56,17 @@ fn main() {
 
 fn cmd_version() -> i32 {
     println!("kotonoha {}", env!("CARGO_PKG_VERSION"));
-    println!("kotonoha-spec (target bundle): {}", TARGET_SPEC_BUNDLE);
+    println!(
+        "kotonoha-spec (target bundle): {}",
+        kotonoha_core::TARGET_SPEC_BUNDLE
+    );
     0
 }
 
 fn cmd_rde_emit() -> i32 {
     let skeleton = serde_json::json!({
         "rde_review_output": {
-            "spec_version": TARGET_SPEC_BUNDLE,
+            "spec_version": kotonoha_core::TARGET_SPEC_BUNDLE,
             "subject_ref": "https://example.invalid/subject/REPLACE",
             "categories": {
                 "preserved": [],
@@ -104,7 +102,7 @@ fn cmd_rde_validate(strict: bool, path: Option<&std::path::Path>) -> i32 {
             return 1;
         }
     };
-    match rde_validate::validate_json(&text, strict) {
+    match kotonoha_core::rde::validate_json(&text, strict) {
         Ok(warnings) => {
             for w in warnings {
                 eprintln!("warning: {}", w);
