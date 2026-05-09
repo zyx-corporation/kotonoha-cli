@@ -47,6 +47,7 @@ Pipe JSON on stdin (omit path or use `-`):
 ```bash
 ./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
+./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
 Use `--strict` to treat missing `summary` on category items as errors (see `kotonoha-spec`).
@@ -58,9 +59,19 @@ export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
 ./target/release/kotonoha db migrate
 ```
 
+Persisting an interchange envelope requires the migration that creates **`interchange_documents`** (included in **`db migrate`**). Example:
+
+```bash
+export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
+./target/release/kotonoha db migrate
+./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
+```
+
+The new row’s UUID is printed to **stdout**.
+
 ## `kotonoha-core` dependency
 
-The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.2`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag v0.1.2` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for **0.1.2**, then `git tag v0.1.2 && git push origin v0.1.2`.
+The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.3`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag v0.1.3` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for the targeted release, then `git tag v0.1.3 && git push origin v0.1.3` (or the new semver tag referenced in `Cargo.toml`).
 
 To build **`kotonoha-cli`** against a **local** `kotonoha-core` checkout (e.g. tag not pushed yet), add a Cargo **[patch]** (for example in `~/.cargo/config.toml`; adjust the path):
 

@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] — 2026-05-10
+
+### Added
+
+- `kotonoha interchange store [--strict] [PATH]` — validates `kotonoha.interchange.v1` JSON and inserts into PostgreSQL **`interchange_documents`** via [`kotonoha_core::store::postgres::PgStore::insert_interchange_document_json`](https://github.com/zyx-corporation/kotonoha-core) (requires **`DATABASE_URL`**; run **`kotonoha db migrate`** first).
+
+### Changed
+
+- Depend on **`kotonoha_core`** at Git tag **`v0.1.3`** (interchange table migration + store API).
+
 ## [0.1.3] — 2026-05-10
 
 ### Added

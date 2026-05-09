@@ -67,6 +67,12 @@ enum InterchangeAction {
         strict: bool,
         path: Option<PathBuf>,
     },
+    /// Persist a validated envelope to PostgreSQL (`interchange_documents`; requires `DATABASE_URL`).
+    Store {
+        #[arg(long)]
+        strict: bool,
+        path: Option<PathBuf>,
+    },
     Emit,
 }
 
@@ -85,6 +91,9 @@ async fn main() {
         Commands::Interchange { action } => match action {
             InterchangeAction::Validate { strict, path } => {
                 cmd_interchange_validate(strict, path.as_deref())
+            }
+            InterchangeAction::Store { strict, path } => {
+                cmd_interchange_store(strict, path.as_deref()).await
             }
             InterchangeAction::Emit => cmd_interchange_emit(),
         },
@@ -187,6 +196,52 @@ fn cmd_rde_validate(strict: bool, path: Option<&Path>) -> i32 {
         Err(e) => {
             eprintln!("{}", e);
             2
+        }
+    }
+}
+
+async fn cmd_interchange_store(strict: bool, path: Option<&Path>) -> i32 {
+    let text = match read_input_text(path) {
+        Ok(t) => t,
+        Err((code, msg)) => {
+            if let Some(m) = msg {
+                eprintln!("{}", m);
+            }
+            return code;
+        }
+    };
+    let url = match std::env::var("DATABASE_URL") {
+        Ok(u) => u,
+        Err(_) => {
+            eprintln!("DATABASE_URL is not set");
+            return 1;
+        }
+    };
+    let store = match kotonoha_core::store::postgres::PgStore::connect(&url).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("database connection failed: {e}");
+            return 3;
+        }
+    };
+    use kotonoha_core::store::postgres::StoreError;
+
+    match store.insert_interchange_document_json(&text, strict).await {
+        Ok(id) => {
+            println!("{}", id);
+            0
+        }
+        Err(e) => {
+            let code = match &e {
+                StoreError::InterchangeValidation(_)
+                | StoreError::RdeValidation(_)
+                | StoreError::Lineage(_)
+                | StoreError::MissingField(_)
+                | StoreError::Json(_) => 2,
+                StoreError::Sql(_) | StoreError::Migrate(_) => 3,
+            };
+            eprintln!("{}", e);
+            code
         }
     }
 }
