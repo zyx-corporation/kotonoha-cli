@@ -11,6 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **[`scripts/phase2_acceptance_demo.sh`](scripts/phase2_acceptance_demo.sh)** — automates Phase‑2 acceptance checks (version, RDE / interchange round‑trips, invalid JSON → exit **2**, optional Postgres path when `DATABASE_URL` is set).
 - **CI** invokes the script on the **release** binary (replaces the earlier inline smoke snippet).
 
+## [0.1.7] — 2026-05-10
+
+### Added
+
+- Smoke test asserting **`interchange validate --strict` exit `2`** on interchange JSON with unknown **top-level** keys (**`kotonoha_core`** `deny_unknown_fields`).
+
+### Changed
+
+- Depend on **`kotonoha_core`** tag **`v0.1.6`** (strict interchange + `lineage_unit` deserialization; expanded library Negative tests).
+
 ## [0.1.6] — 2026-05-10
 
 ### Added
