@@ -2,7 +2,7 @@
 
 ## 目的
 
-この文書の正本は [**`kotonoha-management` の `docs/04_git_operation_rules.md`**](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/04_git_operation_rules.md) に置く。**本ファイルは同一本文の複製である。** **文言変更は、`kotonoha-management` で正本の Issue／PR を先に**完了させ、マージ済み本文を本ファイルおよび他複製すべてへ伝播させる。**同一本文が `kotonoha-spec`／`kotonoha-core`／`kotonoha-cli`／`kotonoha-docs`** の **`docs/git_operation_rules.md`** に配置されている。
+この文書は、この GitHub Organization（**zyx-corporation**）における公開 OSS での開発について、**Issue／作業ブランチ／Pull Request** を経由させることを中心とした Git 運用ルールとして置く。**本文だけで適用要件を伝える**ことを意図し、公開リポジトリの外にある文書を参照してはならない。
 
 Kotonoha / SLS（Semantic Lineage System）は、意味の生成・変換・継承・逸脱を扱うプロジェクトである。そのため、Git運用も単なる作業履歴ではなく、意思決定、Issue分解、作業単位、レビュー、マージ経路を追跡可能にするための制度として扱う。
 
@@ -241,7 +241,7 @@ Phase / milestone 完了記録
 
 ## 11. GitHub Projects
 
-進捗や優先度の可視化に GitHub Projects を用いる場合は、[**`05_github_projects_operation_rules.md`**](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/05_github_projects_operation_rules.md)（正本は `kotonoha-management`）に従う。
+進捗や優先度の可視化に GitHub Projects を用いる場合は、**公開されている運用資料**により Organization／リポジトリで Projects と Issue をどう結びつけるかが説明されていればそれに従う（一例: **`kotonoha-docs` の [`docs/github_projects_policy.md`](https://github.com/zyx-corporation/kotonoha-docs/blob/main/docs/github_projects_policy.md)**）。
 
 Issue・PR に書かれた目的・完了条件を優先し、Projects のカスタムフィールドは補助として維持する。ボード上の **Done** は、対応する変更がマージされたことを前提とし、Issue のクローズと整合させる。
 

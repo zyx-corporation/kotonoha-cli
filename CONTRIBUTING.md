@@ -10,7 +10,7 @@ For a reproducible command sequence (version, RDE / interchange validation, opti
 
 ## Workflow
 
-Organization **Git/Issue/branch/PR** rules (**no direct edits to `main`**): **[`docs/git_operation_rules.md`](docs/git_operation_rules.md)** ([canonical in **`kotonoha-management`**](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/04_git_operation_rules.md); update canon first).
+Organization **Git/Issue/branch/PR** rules (**no direct edits to `main`**): **[`docs/git_operation_rules.md`](docs/git_operation_rules.md)** (Japanese; self-contained in this repo).
 
 1. **Issue** first for command-shape or breaking CLI changes.
 2. **Pull request** with tests where applicable (`cargo test`).
