@@ -2,6 +2,8 @@
 
 This document is the **authoritative definition** of the command-line interface shipped from this repository. Implementations **MUST** conform to it unless an explicit exception is documented in [CHANGELOG.md](../CHANGELOG.md).
 
+**Related:** backlog and Phase 3 intent are captured in **`[cli-requirements.md](cli-requirements.md)`**; substantive behaviour changes MUST keep both documents consistent.
+
 Behaviour that implements SLS semantics **MUST** remain traceable to [`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec). If this document conflicts with the specification, **`kotonoha-spec` wins**.
 
 ## 1. Executable identity
@@ -99,3 +101,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-10 | Initial public definition for Phase 2 gate. |
 | 2026-05-10 | Concrete signatures for Rust CLI **0.1.0** (`version`, `rde validate`, `rde emit`). |
 | 2026-05-10 | **`interchange`** subcommands (**0.1.2**); core tag **`v0.1.1`**. |
+| 2026-05-10 | Cross-link **`cli-requirements.md`** (requirements backlog vs this contract document). |
