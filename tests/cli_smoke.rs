@@ -47,3 +47,24 @@ fn interchange_emit_round_trips_through_validate_strict() {
         .assert()
         .success();
 }
+
+#[test]
+fn interchange_validate_strict_exit_2_on_unknown_top_level_envelope_keys() {
+    let envelope = concat!(
+        "{\n",
+        "  \"format\": \"kotonoha.interchange.v1\",\n",
+        "  \"spec_bundle\": \"0.1\",\n",
+        "  \"lineage_unit\": { \"id\": \"https://example.invalid/smoke-extra\", ",
+        "\"prior_unit_id\": null },\n",
+        "  \"x_custom_trailer\": true\n",
+        "}\n",
+    );
+
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["interchange", "validate", "--strict"])
+        .write_stdin(envelope)
+        .assert()
+        .failure()
+        .code(2);
+}
