@@ -2,6 +2,10 @@
 
 Contributions should preserve alignment with [`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec). Update [docs/cli-definition.md](docs/cli-definition.md) when you change stable command names, exit codes, or traceability.
 
+## Phase 2 acceptance-style demo
+
+For a reproducible command sequence (version, RDE / interchange validation, optional Postgres path), see the public tutorial **[Phase 2 CLI walkthrough](https://github.com/zyx-corporation/kotonoha-docs/blob/main/docs/tutorials/phase2_cli_walkthrough.md)** in [`kotonoha-docs`](https://github.com/zyx-corporation/kotonoha-docs). Exact contracts remain defined in `docs/cli-definition.md`.
+
 ## Workflow
 
 1. **Issue** first for command-shape or breaking CLI changes.
