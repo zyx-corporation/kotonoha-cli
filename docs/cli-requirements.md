@@ -4,7 +4,7 @@ This document collects **requirements and acceptance cues** for the command-line
 
 When implementation meets a requirement here that is not yet spelled out in `cli-definition.md`, **update both documents in the same change set** (PR + CI).
 
-Tracking: **[Issue #4](https://github.com/zyx-corporation/kotonoha-cli/issues/4)** · Phase 3 context: [`kotonoha-management` `#47`](https://github.com/zyx-corporation/kotonoha-management/issues/47) · internal integration draft [`23` (management)](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/23_phase3_detailed_implementation_spec_draft.md).
+Tracking: **[Issue #4](https://github.com/zyx-corporation/kotonoha-cli/issues/4)**. Broader Phase 3 execution / integration detail is tracked in organization **internal issues and drafts** (not hyperlinked from this public repository).
 
 ---
 
@@ -19,7 +19,7 @@ Tracking: **[Issue #4](https://github.com/zyx-corporation/kotonoha-cli/issues/4)
 
 ## 2. Normative layering
 
-Requirements **MUST NOT** redefine `kotonoha-spec` prose. Semantic truth remains in **`kotonoha-spec`**. Implementation gaps escalate per repository governance (`kotonoha-management` **`17`** workflow, when applicable).
+Requirements **MUST NOT** redefine `kotonoha-spec` prose. Semantic truth remains in **`kotonoha-spec`**. Implementation gaps escalate per repository and **public** governance/escalation paths described in **`kotonoha-spec`** and contributor docs (private playbooks stay off this file).
 
 ---
 
@@ -40,12 +40,12 @@ Identifiers are stable for Issue/PR linkage. “Met” implies covered in **`cli
 
 ## 4. Phase 3 — ingest path and symmetry (Milestone M3.3)
 
-Path **A/B** decision lives in **`kotonoha-management` [#34](https://github.com/zyx-corporation/kotonoha-management/issues/34)** / [#47](https://github.com/zyx-corporation/kotonoha-management/issues/47). If **path A** (CLI-first) proceeds:
+Path **A/B** (ingest strategy) is decided under organization maintainer tracking **outside this public repo**. If **path A** (CLI-first) proceeds:
 
 | ID | Requirement | Notes |
 | --- | --- | --- |
 | **REQ-CLI-050** | Support **deterministic ingestion** of console-equivalent payloads with **no less validation** than `interchange validate` for the envelope shape (JSON file or stdin). | Exact subcommand / flag spelling is **design**; MUST land in **`cli-definition.md`** before release. |
-| **REQ-CLI-051** | Emit machine-usable differentiation between **validation shape vs semantic rejection vs persistence/environment failure** aligned with **`20` meaning-class projection** (`kotonoha-management` `20_phase3_core_console_contract_outline_draft.md`). **Table TBD until [#46](https://github.com/zyx-corporation/kotonoha-management/issues/46) closes the v0 mapping.** | Allowed interim: documented exit **`2`** split via stderr prefixes **only if** scripted in `CHANGELOG` + `cli-definition`. Prefer stable integer map after review. |
+| **REQ-CLI-051** | Emit machine-usable differentiation between **validation shape vs semantic rejection vs persistence/environment failure** (aligned with the informative [**`kotonoha-core` gap memo**](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/core-console-contract-gap-phase3-draft.md) and future **`cli-definition.md`** updates). **Table TBD** until maintainers publish a stable v0 mapping. | Allowed interim: documented exit **`2`** split via stderr prefixes **only if** scripted in `CHANGELOG` + `cli-definition`. Prefer stable integer map after review. |
 | **REQ-CLI-052** | Preserve **`phase2_acceptance_demo`** and CI behaviours; extend demo or CI when Phase 3 adds user-visible paths. | See [`scripts/phase2_acceptance_demo.sh`](../scripts/phase2_acceptance_demo.sh). |
 
 ---
@@ -56,7 +56,7 @@ Path **A/B** decision lives in **`kotonoha-management` [#34](https://github.com/
 | --- | --- |
 | **REQ-CLI-N01** | **Stderr vs stdout**: diagnostic detail on stderr; machine-oriented single-line payloads on stdout only where `cli-definition` promises it (e.g. UUID from `store`). |
 | **REQ-CLI-N02** | **Traceability**: **`cli-definition.md`** §6 matrix MUST include any new externally visible command tied to a spec anchor or an explicit _(not normative)_ core pointer. [`kotonoha-core` `spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md). |
-| **REQ-CLI-N03** | **Security posture (Phase 3 scope)**: no interactive secret prompts in baseline; **`DATABASE_URL`** is environment supplied. Fine-grained IAM is out of CLI scope (`kotonoha-management` **U-09**). |
+| **REQ-CLI-N03** | **Security posture (Phase 3 scope)**: no interactive secret prompts in baseline; **`DATABASE_URL`** is environment supplied. Fine-grained IAM is out of CLI scope for the Phase 3 baseline. |
 
 ---
 
@@ -64,7 +64,7 @@ Path **A/B** decision lives in **`kotonoha-management` [#34](https://github.com/
 
 Minimum evidence for Phase 3 CLI slice:
 
-1. PR links to **`kotonoha-management` #47** (or superseding execution Issue) stating which REQ IDs moved.
+1. PR references the **Phase 3 execution tracker** used by maintainers (internal issue list) stating which REQ IDs moved—do not embed private URLs in public threads.
 2. Updated **`cli-definition.md`** signatures for anything script-visible.
 3. Green CI on **`kotonoha-cli`** `main` for the merge commit.
 
@@ -74,4 +74,4 @@ Minimum evidence for Phase 3 CLI slice:
 
 | Date | Change |
 | --- | --- |
-| 2026-05-10 | Initial requirements draft (**Issue #4**). |
+| 2026-05-10 | Initial requirements draft (**Issue #4**); Phase 3 pointers avoid private-repository hyperlinks in this OSS copy (**#37**). |
