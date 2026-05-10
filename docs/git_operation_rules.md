@@ -1,0 +1,256 @@
+# Kotonoha Git 運用ルール
+
+## 目的
+
+この文書の正本は [**`kotonoha-management` の `docs/04_git_operation_rules.md`**](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/04_git_operation_rules.md) に置く。**本ファイルは同一本文の複製である。** **文言変更は、`kotonoha-management` で正本の Issue／PR を先に**完了させ、マージ済み本文を本ファイルおよび他複製すべてへ伝播させる。**同一本文が `kotonoha-spec`／`kotonoha-core`／`kotonoha-cli`／`kotonoha-docs`** の **`docs/git_operation_rules.md`** に配置されている。
+
+Kotonoha / SLS（Semantic Lineage System）は、意味の生成・変換・継承・逸脱を扱うプロジェクトである。そのため、Git運用も単なる作業履歴ではなく、意思決定、Issue分解、作業単位、レビュー、マージ経路を追跡可能にするための制度として扱う。
+
+このルールの目的は、以下である。
+
+- 作業の起点を Issue として明確にする。
+- main およびマイルストーンブランチの直接編集を防ぐ。
+- 作業単位、責任範囲、レビュー経路を追跡可能にする。
+- Phase / milestone 計画と実作業の対応を維持する。
+- 形式上のGit履歴だけでなく、意味上の変更理由を保存する。
+
+## 基本原則
+
+Kotonoha では、すべての実質的なファイル作成・編集・削除を、以下の流れで行う。
+
+1. Issue を起票する。
+2. Issue に対応する作業用ブランチを作成する。
+3. 作業用ブランチ上でファイルを作成・編集・削除する。
+4. Pull Request を作成する。
+5. レビューまたは自己確認を経て、main または対象マイルストーンブランチへマージする。
+
+原則として、Issue のない作業、作業ブランチのない編集、Pull Request を経由しないマージは行わない。
+
+## 1. 起票
+
+ファイルの作成・編集・削除にあたっては、まず Issue を起票する。
+
+Issue には、少なくとも以下を記述する。
+
+- 目的
+- 背景
+- 作業内容
+- 完了条件
+- 影響範囲
+- 必要に応じた関連文書・関連Issue
+
+Issue は、作業の依頼票ではなく、意味変更の起点である。したがって、単に「修正する」とだけ書くのではなく、なぜその変更が必要なのか、何を保存し、何を変換し、何を未解決のまま残すのかを可能な範囲で記述する。
+
+## 2. 作業用ブランチ
+
+Issue を起票したら、同時に編集用の作業ブランチを用意する。
+
+作業ブランチは、原則として1つの Issue または小さくまとまった Issue 群に対応させる。
+
+推奨するブランチ命名は以下である。
+
+```text
+<type>/issue-<number>-<short-description>
+```
+
+例:
+
+```text
+docs/issue-13-git-operation-rules
+spec/issue-21-rde-output-schema
+research/issue-34-semantic-lineage-notes
+process/issue-40-release-boundary
+```
+
+`type` には、作業の性質に応じて以下を用いる。
+
+| type | 用途 |
+| --- | --- |
+| `docs` | 文書追加・修正 |
+| `spec` | 仕様・スキーマ・インターフェース定義 |
+| `research` | 研究メモ・理論整理 |
+| `process` | 運用ルール・管理手順 |
+| `fix` | 誤記・リンク切れ・軽微な修正 |
+| `refactor` | 構造整理・配置変更 |
+| `experiment` | 実験的検討・検証用作業 |
+
+ブランチ名には Issue 番号を含める。これにより、ブランチ、Issue、Pull Request、コミット履歴の対応を追跡しやすくする。
+
+## 3. main / milestone branch の直接編集禁止
+
+`main` ブランチおよびマイルストーンブランチは、直接編集してはならない。
+
+すべての変更は、作業用ブランチから Pull Request を作成し、PR経由でマージする。
+
+禁止される操作は以下である。
+
+- `main` への直接コミット
+- マイルストーンブランチへの直接コミット
+- GitHub UI からの直接編集による main 更新
+- Issue なしの緊急修正を恒常化すること
+- PRなしで履歴を書き換えること
+
+例外が必要な場合も、事後に必ず Issue と記録を残す。ただし、例外は障害復旧、機密情報の緊急除去、破損した文書の復旧など、限定的な場合に限る。
+
+## 4. Pull Request
+
+Pull Request には、対応する Issue を明記する。
+
+PR本文には、少なくとも以下を記述する。
+
+- 対応Issue
+- 変更概要
+- 変更理由
+- 影響範囲
+- 確認内容
+- 未解決点
+- RDE観点での差異確認
+
+PRは、単なるマージ依頼ではない。Issueで定義した意味変更が、実際の文書・仕様・構造にどう反映されたかを確認する場である。
+
+## 5. マイルストーンブランチ
+
+マイルストーンブランチは、Phaseや大きな開発単位の統合ブランチとして扱う。
+
+例:
+
+```text
+milestone/phase-0-project-setup
+milestone/phase-1-core-spec
+milestone/phase-2-rde-integration
+```
+
+マイルストーンブランチは、直接編集しない。
+
+個別作業は必ず Issue ごとの作業ブランチで行い、PR経由でマイルストーンブランチに取り込む。マイルストーンブランチから `main` へ反映する場合も、PRを作成する。
+
+## 6. Phase / milestone 計画時の Issue 分解
+
+Phase または milestone を計画する場合は、作業前に詳細化した Issue 分解を行う。
+
+各 Issue には、以下をできるだけ明確にする。
+
+- 作業目的
+- 成果物
+- 依存関係
+- 完了条件
+- 想定ブランチ名
+- マージ先ブランチ
+- レビュー観点
+
+Phase / milestone の計画時には、作業用ブランチも事前に決める。
+
+これにより、大きな構想が曖昧なまま巨大なPRになることを避ける。Kotonohaでは、大きな意味変更を小さな追跡可能単位へ分解することを重視する。
+
+## 7. コミットの考え方
+
+コミットは、できるだけ意味のまとまりごとに分ける。
+
+推奨するコミットメッセージ形式は以下である。
+
+```text
+<type>: <summary> (#<issue-number>)
+```
+
+例:
+
+```text
+docs: add Git operation rules (#13)
+process: define milestone branch policy (#13)
+spec: add RDE output schema draft (#21)
+```
+
+コミットには、ファイル差分だけでなく、意味上の変更単位を反映する。
+
+## 8. 軽微な修正の扱い
+
+誤字、リンク修正、表記統一などの軽微な修正でも、原則として Issue と作業ブランチを作成する。
+
+ただし、明らかな誤字修正など、独立したIssueを作るほどではない変更は、関連Issueまたは既存PRに含めてもよい。
+
+その場合も、PR本文に軽微修正を含めたことを明記する。
+
+## 9. RDE観点での確認
+
+PR作成時には、必要に応じて RDE（Resonant Deviation Evaluator）の観点で差異を確認する。
+
+最低限、以下を確認する。
+
+### 保存された要素
+
+- 元のIssueの目的は保存されているか。
+- 元の設計思想や判断理由は失われていないか。
+
+### 変換された要素
+
+- Issueでの議論が、文書・仕様・構造にどう変換されたか。
+- 変換は許可された範囲に収まっているか。
+
+### 補完された要素
+
+- 作業中に追加した補足や判断があるか。
+- それは未検証の主張を確定事項に見せていないか。
+
+### 未解決の要素
+
+- 解決しなかった論点は明示されているか。
+- 次のIssueに切り出すべき項目はあるか。
+
+### 逸脱リスク
+
+- 便利な運用上の判断が、理論的主張へすり替わっていないか。
+- 文書の見た目や整理によって、元の意味が狭められていないか。
+
+## 10. 推奨フロー
+
+通常の作業フローは以下である。
+
+```text
+Issue 起票
+  ↓
+作業ブランチ作成
+  ↓
+ファイル作成・編集
+  ↓
+PR作成
+  ↓
+確認・レビュー
+  ↓
+マージ
+  ↓
+Issue close
+```
+
+Phase / milestone 作業では、以下の流れを推奨する。
+
+```text
+Phase / milestone 計画
+  ↓
+Issue 分解
+  ↓
+作業ブランチ計画
+  ↓
+個別IssueごとのPR
+  ↓
+マイルストーンブランチへ統合
+  ↓
+main へPR
+  ↓
+Phase / milestone 完了記録
+```
+
+## 11. GitHub Projects
+
+進捗や優先度の可視化に GitHub Projects を用いる場合は、[**`05_github_projects_operation_rules.md`**](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/05_github_projects_operation_rules.md)（正本は `kotonoha-management`）に従う。
+
+Issue・PR に書かれた目的・完了条件を優先し、Projects のカスタムフィールドは補助として維持する。ボード上の **Done** は、対応する変更がマージされたことを前提とし、Issue のクローズと整合させる。
+
+## 結論
+
+Kotonoha における Git 運用は、単なるバージョン管理ではない。
+
+Issue は意味変更の起点であり、ブランチは作業範囲の境界であり、PRは意味変換の監査点であり、main は安定した記録面である。
+
+したがって、Kotonohaでは次の原則を守る。
+
+> Issue を起点とし、作業ブランチで変更し、PRで意味変換を確認し、main とマイルストーンブランチを直接編集しない。
