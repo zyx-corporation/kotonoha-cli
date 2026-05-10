@@ -39,11 +39,11 @@ export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
-エンベロープに **`lineage_unit`** や **`rde_document`** が含まれる場合、同一トランザクションで **`lineage_units`** / **`rde_documents`** にも反映されます（`kotonoha_core` **0.1.4** 以降）。
+エンベロープに **`lineage_unit`** や **`rde_document`** が含まれる場合、同一トランザクションで **`lineage_units`** / **`rde_documents`** にも反映されます（`kotonoha_core` **0.1.5** 以降）。
 
 ## `kotonoha-core` との依存関係
 
-CLI は [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) を **`Cargo.toml` の Git 依存**で、タグ **`v0.1.4`**・機能 **`postgres`** として取り込みます。GitHub 上に **`Cargo.toml` が参照するタグが無いと** `cargo build` は依存取得で失敗します。運用では `kotonoha-core` をマージしたうえで、`Cargo.toml` が参照するタグ（例: **`v0.1.4`**）をプッシュしてください。
+CLI は [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) を **`Cargo.toml` の Git 依存**で、タグ **`v0.1.5`**・機能 **`postgres`** として取り込みます。GitHub 上に **`Cargo.toml` が参照するタグが無いと** `cargo build` は依存取得で失敗します。運用では `kotonoha-core` をマージしたうえで、`Cargo.toml` が参照するタグ（例: **`v0.1.5`**）をプッシュしてください。
 
 ローカルの `kotonoha-core` を参照してビルドする場合は、Cargo の **[patch]**（例: `~/.cargo/config.toml`、パスは環境に合わせる）で上書きできます。
 

@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.1.6] — 2026-05-10
+
+### Added
+
+- **`tests/cli_smoke.rs`**: `assert_cmd` smoke tests for `version`, `rde emit|validate`, `interchange emit|validate`.
+- **CI**: PostgreSQL 16 service, `DATABASE_URL`, and shell smoke (`db migrate`, `interchange emit | interchange store`).
+
+### Changed
+
+- Depend on **`kotonoha_core`** **`v0.1.5`** (migration GIN fix for `interchange_documents`, CI / integration tests on core).
+
 ## [0.1.5] — 2026-05-10
 
 ### Changed
