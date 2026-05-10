@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **[`scripts/phase2_acceptance_demo.sh`](scripts/phase2_acceptance_demo.sh)** — automates Phase‑2 acceptance checks (version, RDE / interchange round‑trips, invalid JSON → exit **2**, optional Postgres path when `DATABASE_URL` is set).
+- **CI** invokes the script on the **release** binary (replaces the earlier inline smoke snippet).
+
 ## [0.1.6] — 2026-05-10
 
 ### Added

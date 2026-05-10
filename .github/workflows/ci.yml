@@ -39,9 +39,7 @@ jobs:
         run: cargo test --verbose
       - name: cargo build --release
         run: cargo build --release --verbose
-      - name: CLI smoke (migrate + interchange store)
+      - name: Phase 2 acceptance demo (gate script)
         env:
           DATABASE_URL: postgres://kotonoha:kotonoha@localhost:5432/kotonoha_test
-        run: |
-          ./target/debug/kotonoha db migrate
-          ./target/debug/kotonoha interchange emit | ./target/debug/kotonoha interchange store --strict
+        run: bash scripts/phase2_acceptance_demo.sh ./target/release/kotonoha

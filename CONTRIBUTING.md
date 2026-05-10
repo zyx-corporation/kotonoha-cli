@@ -6,12 +6,14 @@ Contributions should preserve alignment with [`kotonoha-spec`](https://github.co
 
 For a reproducible command sequence (version, RDE / interchange validation, optional Postgres path), see the public tutorial **[Phase 2 CLI walkthrough](https://github.com/zyx-corporation/kotonoha-docs/blob/main/docs/tutorials/phase2_cli_walkthrough.md)** in [`kotonoha-docs`](https://github.com/zyx-corporation/kotonoha-docs). Exact contracts remain defined in `docs/cli-definition.md`.
 
+**Automated script (same checks as the tutorial, plus invalid-JSON exit‑2 check):** [`scripts/phase2_acceptance_demo.sh`](scripts/phase2_acceptance_demo.sh) — run after `cargo build --release`; set `DATABASE_URL` to exercise `db migrate` and `interchange store`. CI runs this script on `main` / pull requests with PostgreSQL.
+
 ## Workflow
 
 1. **Issue** first for command-shape or breaking CLI changes.
 2. **Pull request** with tests where applicable (`cargo test`).
 3. Link specification sections affected (see traceability matrix in `docs/cli-definition.md`).
-4. Run `cargo fmt --all` before submitting; CI runs `cargo fmt --check`, `cargo test`, `cargo build --release`, and (with PostgreSQL) `kotonoha db migrate` plus piping `interchange emit` into `interchange store`.
+4. Run `cargo fmt --all` before submitting; CI runs `cargo fmt --check`, **`cargo test`**, **`cargo build --release`**, and **`scripts/phase2_acceptance_demo.sh`** on the release binary **with PostgreSQL `DATABASE_URL`** (see workflow file).
 
 CI uses `DATABASE_URL` pointing at a test database. Locally, start PostgreSQL (for example match credentials in [`kotonoha-core` docker-compose](https://github.com/zyx-corporation/kotonoha-core/blob/main/docker-compose.yml)), export `DATABASE_URL`, then run `kotonoha db migrate` before exercising store commands.
 
