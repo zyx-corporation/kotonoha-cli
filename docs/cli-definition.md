@@ -21,6 +21,8 @@ For organizational **Phase 2** (see internal phase plan in project governance), 
 | **RDE interchange** | Commands **MUST** exist to **validate** and/or **emit** JSON aligned with `docs/rde-review-output.md` in `kotonoha-spec` (`spec_version` **0.1** minimum). Exact subcommand names **MAY** evolve; see §4. |
 | **Traceability** | Documentation in this repository **MUST** map commands and flags to specification sections (see §6). |
 
+From **release 0.2.0**, the CLI **MAY** additionally expose **Phase 3** ingest paths documented in §4.1 (console-equivalent JSON **without** changing `kotonoha-spec` normative prose).
+
 Implementations **MAY** ship additional commands; they **MUST** be listed in this document when stable.
 
 ## 3. Non-goals (Phase 2)
@@ -38,9 +40,9 @@ Subcommand groups:
 | `kotonoha version` | Report CLI and targeted specification compatibility. |
 | `kotonoha db` | Apply **PostgreSQL** migrations shipped with `kotonoha-core` (requires `DATABASE_URL`). |
 | `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
-| `kotonoha interchange` | Validate / emit / **store** **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). |
+| `kotonoha interchange` | Validate / emit / **store** / **ingest** **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). **`ingest`** (≥ **0.2.0**) accepts a **Phase 3** `console_event` wrapper (§4.1). |
 
-### Concrete signatures (release **0.1.x**)
+### Concrete signatures (Phase 2 baseline — **0.1.x**)
 
 | Invocation | Behaviour |
 | --- | --- |
@@ -53,7 +55,40 @@ Subcommand groups:
 | `kotonoha interchange store [--strict] [PATH]` | Reads envelope JSON (same IO rules as `validate`). Requires **`DATABASE_URL`**. Validates via `kotonoha_core::interchange`, then persists in **one transaction**: **`interchange_documents`** and (when present) derived **`lineage_units`** / **`rde_documents`** rows (`kotonoha_core::store::postgres::PgStore::insert_interchange_document_json`). Primary key UUID of the **`interchange_documents`** row is printed to **stdout**. Missing **`DATABASE_URL`** → exit **1**. Validation failure → exit **2**. Connection / persistence failure → exit **3**. Success → exit **0**. Run **`kotonoha db migrate`** first so tables exist. |
 | `kotonoha interchange emit` | Writes a **minimal lineage-only** envelope skeleton (pretty-printed) to stdout. Exit **0**. |
 
-Implementation notes: **`kotonoha` ≥ 0.1.7** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.6`**, feature **`postgres`**, for `db` / `interchange store`). Local development MAY override via Cargo **`[patch]`** to a path checkout. RDE validation lives in `kotonoha_core::rde`; interchange envelopes in `kotonoha_core::interchange`; migrations and pool helpers in `kotonoha_core::store::postgres`. See [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
+### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
+
+This object is **not** normative in `kotonoha-spec`. It exists so channels (future console, automation) can submit payloads that **merge into the same validation paths** as `interchange validate` / `rde validate` (see internal outline [`20_phase3_core_console_contract_outline_draft.md`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/20_phase3_core_console_contract_outline_draft.md) in `kotonoha-management`).
+
+**Root JSON** (single top-level key):
+
+| Property | Type | Requirement |
+| --- | --- | --- |
+| `console_event` | object | **MUST** be present. |
+
+**`console_event` object:**
+
+| Property | Type | Requirement |
+| --- | --- | --- |
+| `version` | string | **MUST** be exactly **`kotonoha.console_event.v0`**. |
+| `kind` | string | **MUST** be one of: **`interchange.ingest.submitted`**, **`rde.review.requested`**. |
+| `body` | JSON value | **MUST** be present. Interpretation depends on **`kind`** (below). |
+
+**`body` by `kind`:**
+
+| `kind` | `body` MUST be… | Delegates to |
+| --- | --- | --- |
+| `interchange.ingest.submitted` | A **`kotonoha.interchange.v1`** envelope object (same constraints as `interchange validate`). | `kotonoha_core::interchange::validate_interchange_json` |
+| `rde.review.requested` | RDE interchange root JSON (same shape as `rde validate`: top-level **`rde_review_output`** object). | `kotonoha_core::rde::validate_json` |
+
+Malformed wrapper (missing keys, wrong `version`, unsupported `kind`) → exit **`1`**. Validation failure on `body` → exit **`2`**. Same stderr conventions as `validate` (warnings for non-strict `summary` gaps).
+
+### Concrete signatures — Phase 3 additive (**≥ 0.2.0**)
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha interchange ingest [--strict] [--persist] [PATH]` | Reads **`kotonoha.console_event.v0`** JSON from **PATH** or **stdin** (same IO rules as `validate`). Parses **`console_event`**, dispatches **`body`** per §4.1. **`--persist`** (only with **`kind`** **`interchange.ingest.submitted`**): after successful validation, persists the **interchange `body`** exactly like **`interchange store`** (requires **`DATABASE_URL`**; UUID to **stdout** on success). Missing **`DATABASE_URL`** when **`--persist`** → exit **`1`**. DB errors → exit **`3`**. RDE kind ignores **`--persist`**. Exit **`0`** on success without **`--persist`**. |
+
+Implementation notes: **`kotonoha` ≥ 0.1.7** links against **`kotonoha_core`** from [`kotonoha-core`](https://github.com/zyx-corporation/kotonoha-core) (`Cargo.toml` Git dependency on tag **`v0.1.6`**, feature **`postgres`**, for `db` / `interchange store`). **`kotonoha` ≥ 0.2.0** adds **`interchange ingest`**. Local development MAY override via Cargo **`[patch]`** to a path checkout. RDE validation lives in `kotonoha_core::rde`; interchange envelopes in `kotonoha_core::interchange`; migrations and pool helpers in `kotonoha_core::store::postgres`. See [`docs/spec-traceability.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/spec-traceability.md).
 
 ### Exit codes (minimum contract)
 
@@ -81,6 +116,7 @@ The CLI **delegates** RDE validation and **interchange envelope** validation to 
 | Semantic lineage unit | [`docs/semantic-lineage-model.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/semantic-lineage-model.md) |
 | Conformance keywords | [`docs/introduction.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/introduction.md) |
 | Interchange envelope (`interchange` subcommands) | *(not normative in spec)* — implementation in [`kotonoha-core` `interchange`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/interchange.rs); aligns `spec_bundle` / lineage / nested RDE with spec sections above |
+| **`interchange ingest`** (`kotonoha.console_event.v0`) | *(not normative in spec)* — transport wrapper only; **`body`** validation/traceability identical to rows above for RDE / interchange. Internal event names align with [`20` §2](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/20_phase3_core_console_contract_outline_draft.md) working list. |
 
 This table **MUST** be updated when new commands tie to additional specification sections.
 
@@ -103,3 +139,5 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-10 | **`interchange validate` Unknown-key contract** (**`kotonoha_core`** **≥ 0.1.6**); CLI **≥ 0.1.7** depends on **`kotonoha_core` `v0.1.6`**. |
 | 2026-05-10 | **`interchange`** subcommands (**0.1.2**); core tag **`v0.1.1`**. |
 | 2026-05-10 | Cross-link **`cli-requirements.md`** (requirements backlog vs this contract document). |
+| 2026-05-12 | Bare **`kotonoha`** invocation: full help on stdout, exit **0** (**0.1.8**; aligns §4 table with Clap optional subcommand behaviour). |
+| 2026-05-12 | **§4.1** `kotonoha.console_event.v0` + **`interchange ingest`** (**≥ 0.2.0**); Phase 3 ingest path; §6 matrix row. |

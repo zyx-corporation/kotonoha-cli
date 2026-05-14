@@ -44,7 +44,7 @@ Path **A/B** (ingest strategy) is decided under organization maintainer tracking
 
 | ID | Requirement | Notes |
 | --- | --- | --- |
-| **REQ-CLI-050** | Support **deterministic ingestion** of console-equivalent payloads with **no less validation** than `interchange validate` for the envelope shape (JSON file or stdin). | Exact subcommand / flag spelling is **design**; MUST land in **`cli-definition.md`** before release. |
+| **REQ-CLI-050** | Support **deterministic ingestion** of console-equivalent payloads with **no less validation** than `interchange validate` for the envelope shape (JSON file or stdin). | **Met (≥ 0.2.0):** **`kotonoha interchange ingest`** + **`kotonoha.console_event.v0`** — [`cli-definition.md`](cli-definition.md) §4.1. |
 | **REQ-CLI-051** | Emit machine-usable differentiation between **validation shape vs semantic rejection vs persistence/environment failure** (aligned with the informative [**`kotonoha-core` gap memo**](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/core-console-contract-gap-phase3-draft.md) and future **`cli-definition.md`** updates). **Table TBD** until maintainers publish a stable v0 mapping. | Allowed interim: documented exit **`2`** split via stderr prefixes **only if** scripted in `CHANGELOG` + `cli-definition`. Prefer stable integer map after review. |
 | **REQ-CLI-052** | Preserve **`phase2_acceptance_demo`** and CI behaviours; extend demo or CI when Phase 3 adds user-visible paths. | See [`scripts/phase2_acceptance_demo.sh`](../scripts/phase2_acceptance_demo.sh). |
 
@@ -75,3 +75,4 @@ Minimum evidence for Phase 3 CLI slice:
 | Date | Change |
 | --- | --- |
 | 2026-05-10 | Initial requirements draft (**Issue #4**); Phase 3 pointers avoid private-repository hyperlinks in this OSS copy (**#37**). |
+| 2026-05-12 | **REQ-CLI-050** marked met for **`kotonoha` ≥ 0.2.0** (`interchange ingest`, `cli-definition` §4.1). |

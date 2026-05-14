@@ -12,6 +12,8 @@
 | --- | --- |
 | [docs/cli-definition.md](docs/cli-definition.md) | `kotonoha` のコマンド境界・[`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec) へのトレース |
 
+**Phase 2 MVP（本リポジトリの射程）:** `cli-definition.md` §2〜§4 に書かれた挙動（RDE・`kotonoha.interchange.v1`・任意の Postgres）。Phase 3 の追加要件は [docs/cli-requirements.md](docs/cli-requirements.md) にあり、ベースライン契約とは別です。
+
 ## ビルド（ソースから）
 
 [Rust](https://www.rust-lang.org/tools/install) が必要です。
@@ -22,6 +24,12 @@ cargo build --release
 ./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
+```
+
+Phase 3 の **console event** 取り込み（ラッパー仕様は **`docs/cli-definition.md`** §4.1。例では **Python 3** を使用）:
+
+```bash
+./target/release/kotonoha interchange emit | python3 -c 'import json,sys; b=json.load(sys.stdin); print(json.dumps({"console_event":{"version":"kotonoha.console_event.v0","kind":"interchange.ingest.submitted","body":b}}))' | ./target/release/kotonoha interchange ingest --strict
 ```
 
 PostgreSQL のマイグレーション（`DATABASE_URL` が必要。[`kotonoha-core` の `docker-compose.yml`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docker-compose.yml) と同じ接続形の例）:
@@ -39,11 +47,11 @@ export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
-エンベロープに **`lineage_unit`** や **`rde_document`** が含まれる場合、同一トランザクションで **`lineage_units`** / **`rde_documents`** にも反映されます（`kotonoha_core` **0.1.5** 以降）。
+エンベロープに **`lineage_unit`** や **`rde_document`** が含まれる場合、同一トランザクションで **`lineage_units`** / **`rde_documents`** にも反映されます（`kotonoha_core` **0.1.6** 以降）。
 
 ## `kotonoha-core` との依存関係
 
-CLI は [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) を **`Cargo.toml` の Git 依存**で、タグ **`v0.1.5`**・機能 **`postgres`** として取り込みます。GitHub 上に **`Cargo.toml` が参照するタグが無いと** `cargo build` は依存取得で失敗します。運用では `kotonoha-core` をマージしたうえで、`Cargo.toml` が参照するタグ（例: **`v0.1.5`**）をプッシュしてください。
+CLI は [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) を **`Cargo.toml` の Git 依存**で、タグ **`v0.1.6`**・機能 **`postgres`** として取り込みます。GitHub 上に **`Cargo.toml` が参照するタグが無いと** `cargo build` は依存取得で失敗します。運用では `kotonoha-core` をマージしたうえで、`Cargo.toml` が参照するタグ（例: **`v0.1.6`**）をプッシュしてください。
 
 ローカルの `kotonoha-core` を参照してビルドする場合は、Cargo の **[patch]**（例: `~/.cargo/config.toml`、パスは環境に合わせる）で上書きできます。
 
