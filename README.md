@@ -12,6 +12,8 @@ Normative technical contracts for interchange and lineage remain in [`kotonoha-s
 | --- | --- |
 | [docs/cli-definition.md](docs/cli-definition.md) | **Public definition** of the `kotonoha` CLI (command surface, boundaries, traceability to `kotonoha-spec`). |
 
+**Phase 2 MVP (this repository):** behaviour matches §2–§4 of `cli-definition.md` (RDE and `kotonoha.interchange.v1`, optional Postgres via `kotonoha_core`). Phase 3 backlog items live in [docs/cli-requirements.md](docs/cli-requirements.md), not in the baseline contract.
+
 ## Relationship to other repositories
 
 | Repository | Role |
@@ -50,6 +52,12 @@ Pipe JSON on stdin (omit path or use `-`):
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
+Phase 3 **console event** ingest (wrapper schema: **`docs/cli-definition.md`** §4.1; requires **Python 3** only for this one-liner example):
+
+```bash
+./target/release/kotonoha interchange emit | python3 -c 'import json,sys; b=json.load(sys.stdin); print(json.dumps({"console_event":{"version":"kotonoha.console_event.v0","kind":"interchange.ingest.submitted","body":b}}))' | ./target/release/kotonoha interchange ingest --strict
+```
+
 Use `--strict` to treat missing `summary` on category items as errors (see `kotonoha-spec`).
 
 PostgreSQL migrations (requires `DATABASE_URL`, same URL shape as [`kotonoha-core` `docker-compose.yml`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docker-compose.yml)):
@@ -67,11 +75,11 @@ export DATABASE_URL="postgres://kotonoha:kotonoha@localhost:5432/kotonoha_dev"
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```
 
-The new interchange row’s UUID is printed to **stdout**. When the envelope includes **`lineage_unit`** and/or **`rde_document`**, matching rows are written to **`lineage_units`** and **`rde_documents`** in the **same database transaction** (`kotonoha_core` **0.1.5+**).
+The new interchange row’s UUID is printed to **stdout**. When the envelope includes **`lineage_unit`** and/or **`rde_document`**, matching rows are written to **`lineage_units`** and **`rde_documents`** in the **same database transaction** (`kotonoha_core` **0.1.6+**).
 
 ## `kotonoha-core` dependency
 
-The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.5`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag …` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for the targeted release, then push the semver tag referenced in `Cargo.toml` (for example `git tag v0.1.5 && git push origin v0.1.5`).
+The CLI depends on [`kotonoha_core`](https://github.com/zyx-corporation/kotonoha-core) via **`Cargo.toml` Git** at tag **`v0.1.6`** with feature **`postgres`**. That tag **must exist on GitHub** before `cargo build` / `cargo test` can fetch the dependency (`failed to find tag …` otherwise). Publish flow for maintainers: merge `kotonoha-core` changes for the targeted release, then push the semver tag referenced in `Cargo.toml` (for example `git tag v0.1.6 && git push origin v0.1.6`).
 
 To build **`kotonoha-cli`** against a **local** `kotonoha-core` checkout (e.g. tag not pushed yet), add a Cargo **[patch]** (for example in `~/.cargo/config.toml`; adjust the path):
 

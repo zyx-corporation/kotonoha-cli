@@ -5,7 +5,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use serde_json::Value;
 
 #[derive(Parser)]
 #[command(name = "kotonoha")]
@@ -14,8 +15,9 @@ use clap::{Parser, Subcommand};
     version
 )]
 struct Cli {
+    /// Omitted subcommand prints full help (same as `--help`; see docs/cli-definition.md §4).
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -73,6 +75,15 @@ enum InterchangeAction {
         strict: bool,
         path: Option<PathBuf>,
     },
+    /// Ingest a **Phase 3** `kotonoha.console_event.v0` JSON wrapper (see docs/cli-definition.md §4.1).
+    Ingest {
+        #[arg(long)]
+        strict: bool,
+        /// After validation, persist interchange body (same as `interchange store`; `interchange.ingest.submitted` only).
+        #[arg(long)]
+        persist: bool,
+        path: Option<PathBuf>,
+    },
     Emit,
 }
 
@@ -80,15 +91,16 @@ enum InterchangeAction {
 async fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
-        Commands::Version => cmd_version(),
-        Commands::Db { action } => match action {
+        None => cmd_help(),
+        Some(Commands::Version) => cmd_version(),
+        Some(Commands::Db { action }) => match action {
             DbAction::Migrate => cmd_db_migrate().await,
         },
-        Commands::Rde { action } => match action {
+        Some(Commands::Rde { action }) => match action {
             RdeAction::Validate { strict, path } => cmd_rde_validate(strict, path.as_deref()),
             RdeAction::Emit => cmd_rde_emit(),
         },
-        Commands::Interchange { action } => match action {
+        Some(Commands::Interchange { action }) => match action {
             InterchangeAction::Validate { strict, path } => {
                 cmd_interchange_validate(strict, path.as_deref())
             }
@@ -96,9 +108,24 @@ async fn main() {
                 cmd_interchange_store(strict, path.as_deref()).await
             }
             InterchangeAction::Emit => cmd_interchange_emit(),
+            InterchangeAction::Ingest {
+                strict,
+                persist,
+                path,
+            } => cmd_interchange_ingest(strict, persist, path.as_deref()).await,
         },
     };
     process::exit(code);
+}
+
+fn cmd_help() -> i32 {
+    let mut c = Cli::command();
+    if let Err(e) = c.print_help() {
+        eprintln!("{}", e);
+        return 3;
+    }
+    println!();
+    0
 }
 
 async fn cmd_db_migrate() -> i32 {
@@ -266,6 +293,130 @@ fn cmd_interchange_validate(strict: bool, path: Option<&Path>) -> i32 {
         Err(e) => {
             eprintln!("{}", e);
             2
+        }
+    }
+}
+
+/// [`docs/cli-definition.md`] §4.1 — `kotonoha.console_event.v0` wrapper for console-equivalent ingest (Phase 3).
+async fn cmd_interchange_ingest(strict: bool, persist: bool, path: Option<&Path>) -> i32 {
+    let text = match read_input_text(path) {
+        Ok(t) => t,
+        Err((code, msg)) => {
+            if let Some(m) = msg {
+                eprintln!("{}", m);
+            }
+            return code;
+        }
+    };
+    let (kind, body_json) = match parse_console_event_v0(&text) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{}", e);
+            return 1;
+        }
+    };
+
+    match kind.as_str() {
+        "interchange.ingest.submitted" => {
+            match kotonoha_core::interchange::validate_interchange_json(&body_json, strict) {
+                Ok(warnings) => {
+                    for w in warnings {
+                        eprintln!("warning: {}", w);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 2;
+                }
+            }
+            if persist {
+                return cmd_interchange_store_from_envelope(&body_json, strict).await;
+            }
+            0
+        }
+        "rde.review.requested" => match kotonoha_core::rde::validate_json(&body_json, strict) {
+            Ok(warnings) => {
+                for w in warnings {
+                    eprintln!("warning: {}", w);
+                }
+                0
+            }
+            Err(e) => {
+                eprintln!("{}", e);
+                2
+            }
+        },
+        other => {
+            eprintln!("unsupported console_event.kind for ingest: {other}");
+            1
+        }
+    }
+}
+
+fn parse_console_event_v0(text: &str) -> Result<(String, String), String> {
+    let root: Value = serde_json::from_str(text).map_err(|e| format!("invalid JSON: {e}"))?;
+    let inner = root
+        .get("console_event")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| {
+            "missing object \"console_event\" (see docs/cli-definition.md §4.1)".to_string()
+        })?;
+    let version = inner
+        .get("version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "console_event.version must be a string".to_string())?;
+    if version != "kotonoha.console_event.v0" {
+        return Err(format!(
+            "unsupported console_event.version (expected \"kotonoha.console_event.v0\", got {version:?})"
+        ));
+    }
+    let kind = inner
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "console_event.kind must be a string".to_string())?
+        .to_string();
+    let body = inner
+        .get("body")
+        .ok_or_else(|| "missing console_event.body".to_string())?;
+    let body_json = serde_json::to_string(body).map_err(|e| format!("console_event.body: {e}"))?;
+    Ok((kind, body_json))
+}
+
+async fn cmd_interchange_store_from_envelope(envelope_json: &str, strict: bool) -> i32 {
+    let url = match std::env::var("DATABASE_URL") {
+        Ok(u) => u,
+        Err(_) => {
+            eprintln!("DATABASE_URL is not set");
+            return 1;
+        }
+    };
+    let store = match kotonoha_core::store::postgres::PgStore::connect(&url).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("database connection failed: {e}");
+            return 3;
+        }
+    };
+    use kotonoha_core::store::postgres::StoreError;
+    match store
+        .insert_interchange_document_json(envelope_json, strict)
+        .await
+    {
+        Ok(id) => {
+            println!("{}", id);
+            0
+        }
+        Err(e) => {
+            let code = match &e {
+                StoreError::InterchangeValidation(_)
+                | StoreError::RdeValidation(_)
+                | StoreError::Lineage(_)
+                | StoreError::MissingField(_)
+                | StoreError::Json(_) => 2,
+                StoreError::Sql(_) | StoreError::Migrate(_) => 3,
+            };
+            eprintln!("{}", e);
+            code
         }
     }
 }

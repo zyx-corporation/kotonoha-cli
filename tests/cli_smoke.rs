@@ -2,6 +2,16 @@
 
 use assert_cmd::Command;
 use predicates::prelude::*;
+use serde_json::json;
+
+#[test]
+fn bare_invocation_prints_usage_and_succeeds() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Usage:"));
+}
 
 #[test]
 fn version_prints_binary_and_spec_bundle() {
@@ -46,6 +56,74 @@ fn interchange_emit_round_trips_through_validate_strict() {
         .write_stdin(json)
         .assert()
         .success();
+}
+
+#[test]
+fn interchange_ingest_interchange_kind_round_trips_strict() {
+    let assert = Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["interchange", "emit"])
+        .assert()
+        .success();
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&assert.get_output().stdout).expect("valid json");
+    let wrapped = json!({
+        "console_event": {
+            "version": "kotonoha.console_event.v0",
+            "kind": "interchange.ingest.submitted",
+            "body": envelope
+        }
+    });
+    let payload = serde_json::to_string(&wrapped).unwrap();
+
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["interchange", "ingest", "--strict"])
+        .write_stdin(payload)
+        .assert()
+        .success();
+}
+
+#[test]
+fn interchange_ingest_rde_kind_round_trips_strict() {
+    let assert = Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["rde", "emit"])
+        .assert()
+        .success();
+    let body: serde_json::Value =
+        serde_json::from_slice(&assert.get_output().stdout).expect("valid json");
+    let wrapped = json!({
+        "console_event": {
+            "version": "kotonoha.console_event.v0",
+            "kind": "rde.review.requested",
+            "body": body
+        }
+    });
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["interchange", "ingest", "--strict"])
+        .write_stdin(serde_json::to_string(&wrapped).unwrap())
+        .assert()
+        .success();
+}
+
+#[test]
+fn interchange_ingest_unknown_kind_exits_1() {
+    let bad = json!({
+        "console_event": {
+            "version": "kotonoha.console_event.v0",
+            "kind": "unknown.event",
+            "body": {}
+        }
+    });
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["interchange", "ingest", "--strict"])
+        .write_stdin(serde_json::to_string(&bad).unwrap())
+        .assert()
+        .failure()
+        .code(1);
 }
 
 #[test]

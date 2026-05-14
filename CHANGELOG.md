@@ -6,10 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-12
+
 ### Added
 
-- **[`scripts/phase2_acceptance_demo.sh`](scripts/phase2_acceptance_demo.sh)** — automates Phase‑2 acceptance checks (version, RDE / interchange round‑trips, invalid JSON → exit **2**, optional Postgres path when `DATABASE_URL` is set).
-- **CI** invokes the script on the **release** binary (replaces the earlier inline smoke snippet).
+- **`kotonoha interchange ingest`** — accepts **`kotonoha.console_event.v0`** JSON (`interchange.ingest.submitted` / `rde.review.requested`) and delegates to the same **`kotonoha_core`** validation as **`interchange validate`** / **`rde validate`**. Optional **`--persist`** persists **`interchange.ingest.submitted`** bodies like **`interchange store`** (Phase 3 / [`cli-definition.md`](docs/cli-definition.md) §4.1).
+
+### Changed
+
+- Semver **minor** for new stable subcommand and public wrapper schema documentation.
+
+### Added (tests)
+
+- Smoke tests for **`interchange ingest`** (round-trip from **`interchange emit`**, unknown **`kind`** → exit **1**).
+
+## [0.1.8] — 2026-05-12
+
+### Fixed
+
+- Invoking **`kotonoha`** with no subcommand prints full help and exits **0**, matching **`docs/cli-definition.md`** §4 (same intent as **`--help`**). Previously Clap treated a missing subcommand as an error (**exit `2`**).
+
+### Changed
+
+- **[README.md](README.md)** / **[README_ja.md](README_ja.md)** — document **`kotonoha_core`** Git tag **`v0.1.6`** (prose had drifted from **`Cargo.toml`**).
+- **Phase 2 MVP scope** called out in READMEs (baseline vs **`docs/cli-requirements.md`** backlog).
+
+### Added
+
+- Smoke test: bare **`kotonoha`** invocation succeeds and prints **`Usage:`**.
 
 ## [0.1.7] — 2026-05-10
 
