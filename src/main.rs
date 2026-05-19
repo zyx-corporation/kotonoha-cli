@@ -67,6 +67,50 @@ enum Commands {
         #[command(subcommand)]
         action: DeltaAction,
     },
+    /// Record human review decisions (M1; does not substitute for institutional authority).
+    Review {
+        #[command(subcommand)]
+        action: ReviewAction,
+    },
+    /// Export MeaningDelta + RDE + review decisions as JSON (M1 audit report).
+    Export {
+        /// Meaning delta UUID (`meaning_deltas.id`).
+        #[arg(long, group = "target")]
+        delta_id: Option<uuid::Uuid>,
+        /// Git commit hash (exports all deltas for that commit).
+        #[arg(long, group = "target")]
+        git_commit: Option<String>,
+        /// Write JSON to file instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+}
+
+const M1_EXPORT_FORMAT: &str = "kotonoha.m1_export.v0.1";
+const M1_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m1_export_bundle.v0.1";
+
+#[derive(clap::Args)]
+struct ReviewRecordArgs {
+    #[arg(long)]
+    delta_id: uuid::Uuid,
+    #[arg(long)]
+    assessment_id: Option<uuid::Uuid>,
+    /// Reviewer identity (defaults: `KOTONOHA_DECIDED_BY`, `git config user.email`, `$USER`).
+    #[arg(long)]
+    decided_by: Option<String>,
+    /// Rationale JSON file (omit for `{}`).
+    #[arg(long)]
+    rationale: Option<PathBuf>,
+}
+
+#[derive(Subcommand)]
+enum ReviewAction {
+    /// Record approval (human-in-the-loop; RDE does not replace judgment).
+    Approve(ReviewRecordArgs),
+    /// Record hold (pending further review).
+    Hold(ReviewRecordArgs),
+    /// Record rejection (send back for revision).
+    Reject(ReviewRecordArgs),
 }
 
 #[derive(Subcommand)]
@@ -217,6 +261,34 @@ async fn main() {
                 .await
             }
         },
+        Some(Commands::Review { action }) => match action {
+            ReviewAction::Approve(args) => {
+                cmd_review_record(
+                    kotonoha_core::semantic_lineage::ReviewDecisionKind::Approve,
+                    &args,
+                )
+                .await
+            }
+            ReviewAction::Hold(args) => {
+                cmd_review_record(
+                    kotonoha_core::semantic_lineage::ReviewDecisionKind::Hold,
+                    &args,
+                )
+                .await
+            }
+            ReviewAction::Reject(args) => {
+                cmd_review_record(
+                    kotonoha_core::semantic_lineage::ReviewDecisionKind::Reject,
+                    &args,
+                )
+                .await
+            }
+        },
+        Some(Commands::Export {
+            delta_id,
+            git_commit,
+            out,
+        }) => cmd_export(delta_id, git_commit.as_deref(), out.as_deref()).await,
     };
     process::exit(code);
 }
@@ -337,6 +409,260 @@ fn read_observation_json(path: Option<&Path>) -> Result<Value, i32> {
             })
         }
     }
+}
+
+async fn cmd_review_record(
+    decision: kotonoha_core::semantic_lineage::ReviewDecisionKind,
+    args: &ReviewRecordArgs,
+) -> i32 {
+    let decided_by = match resolve_decided_by(args.decided_by.as_deref()) {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    let rationale = match read_observation_json(args.rationale.as_deref()) {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
+    let input = kotonoha_core::semantic_lineage::RecordReviewDecisionInput {
+        meaning_delta_id: args.delta_id,
+        rde_assessment_id: args.assessment_id,
+        decision,
+        decided_by,
+        rationale,
+    };
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    match store.record_review_decision(&input).await {
+        Ok(id) => {
+            println!("{}", id);
+            0
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        }
+    }
+}
+
+fn resolve_decided_by(override_: Option<&str>) -> Result<String, i32> {
+    if let Some(s) = override_ {
+        let t = s.trim();
+        if !t.is_empty() {
+            return Ok(t.to_string());
+        }
+    }
+    if let Ok(s) = std::env::var("KOTONOHA_DECIDED_BY") {
+        let t = s.trim();
+        if !t.is_empty() {
+            return Ok(t.to_string());
+        }
+    }
+    if let Ok(out) = std::process::Command::new("git")
+        .args(["config", "user.email"])
+        .output()
+    {
+        if out.status.success() {
+            let email = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !email.is_empty() {
+                return Ok(email);
+            }
+        }
+    }
+    if let Ok(u) = std::env::var("USER") {
+        let t = u.trim();
+        if !t.is_empty() {
+            return Ok(t.to_string());
+        }
+    }
+    eprintln!(
+        "decided_by is required: pass --decided-by, set KOTONOHA_DECIDED_BY, or configure git user.email"
+    );
+    Err(1)
+}
+
+async fn cmd_export(
+    delta_id: Option<uuid::Uuid>,
+    git_commit: Option<&str>,
+    out_path: Option<&Path>,
+) -> i32 {
+    match (delta_id, git_commit) {
+        (Some(_), Some(_)) => {
+            eprintln!("export: specify only one of --delta-id or --git-commit");
+            return 1;
+        }
+        (None, None) => {
+            eprintln!("export: --delta-id or --git-commit is required");
+            return 1;
+        }
+        _ => {}
+    }
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    let json = match (delta_id, git_commit) {
+        (Some(id), None) => match build_m1_export(&store, id).await {
+            Ok(v) => v,
+            Err(c) => return c,
+        },
+        (None, Some(commit)) => match build_m1_export_bundle(&store, commit).await {
+            Ok(v) => v,
+            Err(c) => return c,
+        },
+        _ => unreachable!(),
+    };
+    let pretty = match serde_json::to_string_pretty(&json) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("export JSON encode: {e}");
+            return 3;
+        }
+    };
+    if let Some(path) = out_path {
+        if let Err(e) = std::fs::write(path, format!("{pretty}\n")) {
+            eprintln!("write {}: {e}", path.display());
+            return 3;
+        }
+    } else {
+        println!("{pretty}");
+    }
+    0
+}
+
+async fn build_m1_export(
+    store: &kotonoha_core::store::postgres::PgStore,
+    delta_id: uuid::Uuid,
+) -> Result<Value, i32> {
+    use kotonoha_core::store::postgres::StoreError;
+    let row = match store.get_meaning_delta(delta_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            eprintln!("meaning delta not found: {delta_id}");
+            return Err(2);
+        }
+        Err(StoreError::Sql(e)) => {
+            eprintln!("{}", e);
+            return Err(3);
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return Err(store_error_code(&e));
+        }
+    };
+    let assessments = store
+        .list_rde_assessments_for_meaning_delta(delta_id)
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        })?;
+    let decisions = store
+        .list_review_decisions_for_meaning_delta(delta_id)
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        })?;
+    Ok(m1_export_value(&row, &assessments, &decisions))
+}
+
+async fn build_m1_export_bundle(
+    store: &kotonoha_core::store::postgres::PgStore,
+    git_commit: &str,
+) -> Result<Value, i32> {
+    let deltas = store
+        .list_meaning_deltas_by_git_commit(git_commit)
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        })?;
+    let mut exports = Vec::with_capacity(deltas.len());
+    for row in &deltas {
+        let assessments = store
+            .list_rde_assessments_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        let decisions = store
+            .list_review_decisions_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        exports.push(m1_export_value(row, &assessments, &decisions));
+    }
+    Ok(serde_json::json!({
+        "format": M1_EXPORT_BUNDLE_FORMAT,
+        "git_commit": git_commit,
+        "exports": exports,
+    }))
+}
+
+fn m1_export_value(
+    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
+    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
+    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
+) -> Value {
+    let generated_at_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let summary = build_summary_paragraph(row, assessments, decisions);
+    serde_json::json!({
+        "format": M1_EXPORT_FORMAT,
+        "generated_at_unix": generated_at_unix,
+        "meaning_delta": {
+            "id": row.id,
+            "git_commit": row.git_commit,
+            "file_path": row.file_path,
+            "line_range_start": row.line_range_start,
+            "line_range_end": row.line_range_end,
+            "diff_ref": row.diff_ref,
+            "observation": row.observation,
+            "source_context": row.source_context,
+        },
+        "rde_assessments": assessments.iter().map(|a| serde_json::json!({
+            "id": a.id,
+            "meaning_delta_id": a.meaning_delta_id,
+            "payload": a.payload,
+            "audit_correlation_id": a.audit_correlation_id,
+            "rde_document_id": a.rde_document_id,
+        })).collect::<Vec<_>>(),
+        "review_decisions": decisions.iter().map(|d| serde_json::json!({
+            "id": d.id,
+            "meaning_delta_id": d.meaning_delta_id,
+            "rde_assessment_id": d.rde_assessment_id,
+            "decision": d.decision,
+            "decided_by": d.decided_by,
+            "rationale": d.rationale,
+        })).collect::<Vec<_>>(),
+        "summary_paragraph": summary,
+    })
+}
+
+fn build_summary_paragraph(
+    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
+    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
+    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
+) -> String {
+    let latest = decisions.first();
+    let decision_part = latest.map_or_else(
+        || "no review decision recorded yet".to_string(),
+        |d| format!("latest decision `{}` by {}", d.decision, d.decided_by),
+    );
+    format!(
+        "Meaning change in `{}` at commit {}: {} RDE assessment(s); {}.",
+        row.file_path,
+        row.git_commit,
+        assessments.len(),
+        decision_part
+    )
 }
 
 async fn cmd_rde_attach(
