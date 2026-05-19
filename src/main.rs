@@ -62,6 +62,31 @@ enum Commands {
         /// Limit diff to this file (repo-relative or absolute).
         file: Option<PathBuf>,
     },
+    /// MeaningDelta (ΔM) operations (M1; requires `DATABASE_URL` + `db migrate`).
+    Delta {
+        #[command(subcommand)]
+        action: DeltaAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeltaAction {
+    /// Register a meaning change anchored to a file in the current Git repo.
+    Create {
+        /// Changed file (repo-relative or absolute).
+        file: PathBuf,
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        line_start: Option<i32>,
+        #[arg(long)]
+        line_end: Option<i32>,
+        /// Alternative to line range (e.g. `unstaged:docs/foo.md`).
+        #[arg(long)]
+        diff_ref: Option<String>,
+        /// Observation JSON (`preserved`, `lost`, …). Omit for `{}`; use `-` file or stdin when wired via shell.
+        observation: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -82,6 +107,22 @@ enum RdeAction {
     },
     /// Emit a minimal compliant JSON skeleton (stdout).
     Emit,
+    /// Attach validated RDE JSON to an existing MeaningDelta (`rde_assessments` row).
+    Attach {
+        /// Target `meaning_deltas.id` from `delta create`.
+        #[arg(long)]
+        delta_id: uuid::Uuid,
+        #[arg(long)]
+        strict: bool,
+        /// Also insert spec-shaped row into `rde_documents` and link FK.
+        #[arg(long)]
+        materialize_document: bool,
+        /// Audit correlation (defaults to RDE `subject_ref` when present).
+        #[arg(long)]
+        audit_correlation_id: Option<String>,
+        /// RDE JSON file, or stdin when omitted / `-`.
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -122,6 +163,22 @@ async fn main() {
         Some(Commands::Rde { action }) => match action {
             RdeAction::Validate { strict, path } => cmd_rde_validate(strict, path.as_deref()),
             RdeAction::Emit => cmd_rde_emit(),
+            RdeAction::Attach {
+                delta_id,
+                strict,
+                materialize_document,
+                audit_correlation_id,
+                path,
+            } => {
+                cmd_rde_attach(
+                    delta_id,
+                    strict,
+                    materialize_document,
+                    audit_correlation_id.as_deref(),
+                    path.as_deref(),
+                )
+                .await
+            }
         },
         Some(Commands::Interchange { action }) => match action {
             InterchangeAction::Validate { strict, path } => {
@@ -140,8 +197,201 @@ async fn main() {
         Some(Commands::Init { project_id, path }) => cmd_init(project_id.as_deref(), &path),
         Some(Commands::Status { path }) => cmd_status(&path).await,
         Some(Commands::Diff { path, file }) => cmd_diff(&path, file.as_deref()),
+        Some(Commands::Delta { action }) => match action {
+            DeltaAction::Create {
+                file,
+                path,
+                line_start,
+                line_end,
+                diff_ref,
+                observation,
+            } => {
+                cmd_delta_create(
+                    &path,
+                    &file,
+                    line_start,
+                    line_end,
+                    diff_ref,
+                    observation.as_deref(),
+                )
+                .await
+            }
+        },
     };
     process::exit(code);
+}
+
+fn store_error_code(e: &kotonoha_core::store::postgres::StoreError) -> i32 {
+    use kotonoha_core::store::postgres::StoreError;
+    match e {
+        StoreError::InterchangeValidation(_)
+        | StoreError::RdeValidation(_)
+        | StoreError::Lineage(_)
+        | StoreError::SemanticLineage(_)
+        | StoreError::MissingField(_)
+        | StoreError::Json(_) => 2,
+        StoreError::Sql(_) | StoreError::Migrate(_) => 3,
+    }
+}
+
+async fn pg_store() -> Result<kotonoha_core::store::postgres::PgStore, i32> {
+    let url = match std::env::var("DATABASE_URL") {
+        Ok(u) => u,
+        Err(_) => {
+            eprintln!("DATABASE_URL is not set");
+            return Err(1);
+        }
+    };
+    kotonoha_core::store::postgres::PgStore::connect(&url)
+        .await
+        .map_err(|e| {
+            eprintln!("database connection failed: {e}");
+            3
+        })
+}
+
+async fn cmd_delta_create(
+    repo_path: &Path,
+    file: &Path,
+    line_start: Option<i32>,
+    line_end: Option<i32>,
+    diff_ref: Option<String>,
+    observation_path: Option<&Path>,
+) -> i32 {
+    let git = match kotonoha_core::git::discover_repo(Some(repo_path)) {
+        Ok(c) => c,
+        Err(kotonoha_core::git::GitError::NotARepository) => {
+            eprintln!("delta create requires a Git repository");
+            return 1;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    let rel = match kotonoha_core::git::path_relative_to_root(&git, file) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{}", e);
+            return 1;
+        }
+    };
+    let observation = match read_observation_json(observation_path) {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
+    let diff_ref = diff_ref.or_else(|| {
+        if line_start.is_none() && line_end.is_none() {
+            Some(format!("unstaged:{rel}"))
+        } else {
+            None
+        }
+    });
+    let input = kotonoha_core::semantic_lineage::MeaningDeltaInput {
+        document_object_id: None,
+        prior_meaning_state_id: None,
+        new_meaning_state_id: None,
+        agent_run_id: None,
+        git_anchor: kotonoha_core::semantic_lineage::GitAnchor {
+            git_commit: git.commit,
+            file_path: rel,
+            line_range_start: line_start,
+            line_range_end: line_end,
+            diff_ref,
+        },
+        observation,
+        source_context: Value::Object(Default::default()),
+    };
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    match store.create_meaning_delta(&input).await {
+        Ok(id) => {
+            println!("{}", id);
+            0
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        }
+    }
+}
+
+fn read_observation_json(path: Option<&Path>) -> Result<Value, i32> {
+    match path {
+        None => Ok(Value::Object(Default::default())),
+        Some(p) => {
+            let text = match read_input_text(Some(p)) {
+                Ok(t) => t,
+                Err((code, msg)) => {
+                    if let Some(m) = msg {
+                        eprintln!("{}", m);
+                    }
+                    return Err(code);
+                }
+            };
+            serde_json::from_str(&text).map_err(|e| {
+                eprintln!("observation JSON: {e}");
+                2
+            })
+        }
+    }
+}
+
+async fn cmd_rde_attach(
+    delta_id: uuid::Uuid,
+    strict: bool,
+    materialize_document: bool,
+    audit_correlation_id: Option<&str>,
+    path: Option<&Path>,
+) -> i32 {
+    let text = match read_input_text(path) {
+        Ok(t) => t,
+        Err((code, msg)) => {
+            if let Some(m) = msg {
+                eprintln!("{}", m);
+            }
+            return code;
+        }
+    };
+    let payload: Value = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("invalid JSON: {e}");
+            return 1;
+        }
+    };
+    let correlation = audit_correlation_id.map(str::to_string).or_else(|| {
+        payload
+            .get("rde_review_output")
+            .and_then(|o| o.get("subject_ref"))
+            .and_then(|s| s.as_str())
+            .map(str::to_string)
+    });
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    match store
+        .attach_rde_assessment(
+            delta_id,
+            payload,
+            strict,
+            correlation.as_deref(),
+            materialize_document,
+        )
+        .await
+    {
+        Ok(id) => {
+            println!("{}", id);
+            0
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        }
+    }
 }
 
 fn cmd_help() -> i32 {
