@@ -1,0 +1,109 @@
+//! Local project config (`.kotonoha/config.toml`) for M1 CLI.
+
+use std::path::{Path, PathBuf};
+
+const CONFIG_DIR: &str = ".kotonoha";
+const CONFIG_FILE: &str = "config.toml";
+
+#[derive(Debug, Clone)]
+pub struct ProjectConfig {
+    pub project_id: String,
+    pub path: PathBuf,
+}
+
+#[derive(Debug)]
+pub enum ProjectError {
+    Io(std::io::Error),
+    Parse(String),
+    MissingProjectId,
+}
+
+impl std::fmt::Display for ProjectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProjectError::Io(e) => write!(f, "{e}"),
+            ProjectError::Parse(s) => write!(f, "{s}"),
+            ProjectError::MissingProjectId => f.write_str("config missing project_id"),
+        }
+    }
+}
+
+impl std::error::Error for ProjectError {}
+
+pub fn config_path(repo_root: &Path) -> PathBuf {
+    repo_root.join(CONFIG_DIR).join(CONFIG_FILE)
+}
+
+pub fn init_config(
+    repo_root: &Path,
+    project_id: Option<&str>,
+) -> Result<ProjectConfig, ProjectError> {
+    let dir = repo_root.join(CONFIG_DIR);
+    std::fs::create_dir_all(&dir).map_err(ProjectError::Io)?;
+    let id = project_id
+        .map(str::to_string)
+        .unwrap_or_else(|| default_project_id(repo_root));
+    let body = format!(
+        "# Kotonoha local project config (non-normative)\nproject_id = \"{}\"\n",
+        escape_toml_string(&id)
+    );
+    std::fs::write(config_path(repo_root), body).map_err(ProjectError::Io)?;
+    Ok(ProjectConfig {
+        project_id: id,
+        path: repo_root.to_path_buf(),
+    })
+}
+
+pub fn load_config(repo_root: &Path) -> Result<Option<ProjectConfig>, ProjectError> {
+    let path = config_path(repo_root);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&path).map_err(ProjectError::Io)?;
+    let id = parse_project_id(&text).ok_or(ProjectError::MissingProjectId)?;
+    Ok(Some(ProjectConfig {
+        project_id: id,
+        path: repo_root.to_path_buf(),
+    }))
+}
+
+fn default_project_id(repo_root: &Path) -> String {
+    repo_root
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("kotonoha-project")
+        .to_string()
+}
+
+fn parse_project_id(text: &str) -> Option<String> {
+    for line in text.lines() {
+        let line = line.split('#').next().unwrap_or(line).trim();
+        if let Some(rest) = line.strip_prefix("project_id") {
+            let rest = rest.trim_start();
+            if let Some(rest) = rest.strip_prefix('=') {
+                let v = rest.trim().trim_matches('"').trim_matches('\'');
+                if !v.is_empty() {
+                    return Some(v.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn escape_toml_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_project_id_from_toml() {
+        let t = r#"
+project_id = "my-repo"
+"#;
+        assert_eq!(parse_project_id(t).as_deref(), Some("my-repo"));
+    }
+}

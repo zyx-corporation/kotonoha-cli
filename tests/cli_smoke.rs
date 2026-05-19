@@ -127,6 +127,60 @@ fn interchange_ingest_unknown_kind_exits_1() {
 }
 
 #[test]
+fn init_creates_kotonoha_config_in_git_repo() {
+    if !git_available() {
+        return;
+    }
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .status()
+        .expect("git init");
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["init", "--project-id", "smoke-test"])
+        .current_dir(tmp.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("project_id: smoke-test"));
+    assert!(tmp.path().join(".kotonoha/config.toml").is_file());
+}
+
+#[test]
+fn status_succeeds_in_git_repo() {
+    if !git_available() {
+        return;
+    }
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("commit:"));
+}
+
+#[test]
+fn diff_succeeds_in_git_repo() {
+    if !git_available() {
+        return;
+    }
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .arg("diff")
+        .assert()
+        .success();
+}
+
+fn git_available() -> bool {
+    std::process::Command::new("git")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[test]
 fn interchange_validate_strict_exit_2_on_unknown_top_level_envelope_keys() {
     let envelope = concat!(
         "{\n",
