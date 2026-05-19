@@ -1,6 +1,8 @@
 //! `kotonoha` — CLI entry (argument parsing and UX). Domain logic comes from [`kotonoha_core`].
 
-use std::io::{self, Read};
+mod project;
+
+use std::io::{self, Read, Write};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
@@ -38,6 +40,27 @@ enum Commands {
     Interchange {
         #[command(subcommand)]
         action: InterchangeAction,
+    },
+    /// Initialize `.kotonoha/config.toml` in a Git repository (M1).
+    Init {
+        /// Project id (defaults to directory name).
+        #[arg(long)]
+        project_id: Option<String>,
+        /// Directory to treat as repository root (default: `.`).
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
+    /// Show Git + database + project context (M1).
+    Status {
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
+    /// Show Git unified diff for working tree changes (M1).
+    Diff {
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+        /// Limit diff to this file (repo-relative or absolute).
+        file: Option<PathBuf>,
     },
 }
 
@@ -114,6 +137,9 @@ async fn main() {
                 path,
             } => cmd_interchange_ingest(strict, persist, path.as_deref()).await,
         },
+        Some(Commands::Init { project_id, path }) => cmd_init(project_id.as_deref(), &path),
+        Some(Commands::Status { path }) => cmd_status(&path).await,
+        Some(Commands::Diff { path, file }) => cmd_diff(&path, file.as_deref()),
     };
     process::exit(code);
 }
@@ -125,6 +151,150 @@ fn cmd_help() -> i32 {
         return 3;
     }
     println!();
+    0
+}
+
+fn cmd_init(project_id: Option<&str>, path: &Path) -> i32 {
+    let git = match kotonoha_core::git::discover_repo(Some(path)) {
+        Ok(c) => c,
+        Err(kotonoha_core::git::GitError::NotARepository) => {
+            eprintln!("init requires a Git repository (run from repo root or use --path)");
+            return 1;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    match project::init_config(&git.root, project_id) {
+        Ok(cfg) => {
+            println!("initialized {}", project::config_path(&git.root).display());
+            println!("project_id: {}", cfg.project_id);
+            0
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            3
+        }
+    }
+}
+
+async fn cmd_status(path: &Path) -> i32 {
+    let git = match kotonoha_core::git::discover_repo(Some(path)) {
+        Ok(c) => c,
+        Err(kotonoha_core::git::GitError::NotARepository) => {
+            eprintln!("status requires a Git repository");
+            return 1;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    let wt = match kotonoha_core::git::working_tree_status(&git) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    let cfg = match project::load_config(&git.root) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+
+    println!("repository: {}", git.root.display());
+    if let Some(ref b) = git.branch {
+        println!("branch: {b}");
+    } else if git.detached {
+        println!("branch: (detached HEAD)");
+    }
+    println!("commit: {}", git.commit);
+    println!("working tree: {}", if wt.dirty { "dirty" } else { "clean" });
+    if wt.dirty {
+        println!(
+            "changes: staged={} unstaged={} untracked={}",
+            wt.staged_count, wt.unstaged_count, wt.untracked_count
+        );
+    }
+    match &cfg {
+        Some(c) => println!("kotonoha project_id: {}", c.project_id),
+        None => println!("kotonoha: not initialized (run `kotonoha init`)"),
+    }
+
+    match std::env::var("DATABASE_URL") {
+        Ok(_) => {
+            if let Some(db) = db_status_summary().await {
+                println!("database: connected");
+                println!("migrations: {}", db.migrations);
+                println!("meaning_deltas: {}", db.meaning_delta_count);
+            } else {
+                println!("database: connection or query failed");
+            }
+        }
+        Err(_) => println!("database: DATABASE_URL not set"),
+    }
+    0
+}
+
+struct DbStatusSummary {
+    migrations: String,
+    meaning_delta_count: i64,
+}
+
+async fn db_status_summary() -> Option<DbStatusSummary> {
+    let url = std::env::var("DATABASE_URL").ok()?;
+    let store = kotonoha_core::store::postgres::PgStore::connect(&url)
+        .await
+        .ok()?;
+    let has_m1 = store.m1_schema_present().await.ok()?;
+    if !has_m1 {
+        return Some(DbStatusSummary {
+            migrations: "v0 only (run `kotonoha db migrate` for M1 tables)".into(),
+            meaning_delta_count: 0,
+        });
+    }
+    let count = store.count_meaning_deltas().await.ok()?;
+    Some(DbStatusSummary {
+        migrations: "applied (meaning_deltas present)".into(),
+        meaning_delta_count: count,
+    })
+}
+
+fn cmd_diff(path: &Path, file: Option<&Path>) -> i32 {
+    let git = match kotonoha_core::git::discover_repo(Some(path)) {
+        Ok(c) => c,
+        Err(kotonoha_core::git::GitError::NotARepository) => {
+            eprintln!("diff requires a Git repository");
+            return 1;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    let diff = match kotonoha_core::git::diff_unstaged(&git, file) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+    };
+    if diff.text.is_empty() {
+        println!("(no unstaged diff)");
+        return 0;
+    }
+    let mut out = io::stdout();
+    if let Err(e) = out.write_all(diff.text.as_bytes()) {
+        eprintln!("write stdout: {e}");
+        return 3;
+    }
+    if !diff.text.ends_with('\n') {
+        let _ = writeln!(out);
+    }
     0
 }
 
@@ -263,6 +433,7 @@ async fn cmd_interchange_store(strict: bool, path: Option<&Path>) -> i32 {
                 StoreError::InterchangeValidation(_)
                 | StoreError::RdeValidation(_)
                 | StoreError::Lineage(_)
+                | StoreError::SemanticLineage(_)
                 | StoreError::MissingField(_)
                 | StoreError::Json(_) => 2,
                 StoreError::Sql(_) | StoreError::Migrate(_) => 3,
@@ -411,6 +582,7 @@ async fn cmd_interchange_store_from_envelope(envelope_json: &str, strict: bool) 
                 StoreError::InterchangeValidation(_)
                 | StoreError::RdeValidation(_)
                 | StoreError::Lineage(_)
+                | StoreError::SemanticLineage(_)
                 | StoreError::MissingField(_)
                 | StoreError::Json(_) => 2,
                 StoreError::Sql(_) | StoreError::Migrate(_) => 3,

@@ -41,6 +41,9 @@ Subcommand groups:
 | `kotonoha db` | Apply **PostgreSQL** migrations shipped with `kotonoha-core` (requires `DATABASE_URL`). |
 | `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
 | `kotonoha interchange` | Validate / emit / **store** / **ingest** **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). **`ingest`** (≥ **0.2.0**) accepts a **Phase 3** `console_event` wrapper (§4.1). |
+| `kotonoha init` | Create **`.kotonoha/config.toml`** in a Git repo (M1 workspace bootstrap). |
+| `kotonoha status` | Print Git context, project config, and optional DB summary (`DATABASE_URL`). |
+| `kotonoha diff` | Print **unstaged** `git diff` (optional file scope). |
 
 ### Concrete signatures (Phase 2 baseline — **0.1.x**)
 
@@ -54,6 +57,14 @@ Subcommand groups:
 | `kotonoha interchange validate [--strict] [PATH]` | Validates **`kotonoha.interchange.v1`** envelope (`format`, `spec_bundle`, optional `lineage_unit`, optional `rde_document`). Nested RDE uses the same `--strict` semantics as `rde validate`. **Unknown JSON keys:** rejected when validation uses **`kotonoha_core`** **≥ 0.1.6** — only the four top‑level envelope properties are accepted; **`lineage_unit`** objects accept **`id` / `prior_unit_id` only** (serde `deny_unknown_fields`; exit **`2`** on failure). Exit codes identical pattern to `rde validate`. |
 | `kotonoha interchange store [--strict] [PATH]` | Reads envelope JSON (same IO rules as `validate`). Requires **`DATABASE_URL`**. Validates via `kotonoha_core::interchange`, then persists in **one transaction**: **`interchange_documents`** and (when present) derived **`lineage_units`** / **`rde_documents`** rows (`kotonoha_core::store::postgres::PgStore::insert_interchange_document_json`). Primary key UUID of the **`interchange_documents`** row is printed to **stdout**. Missing **`DATABASE_URL`** → exit **1**. Validation failure → exit **2**. Connection / persistence failure → exit **3**. Success → exit **0**. Run **`kotonoha db migrate`** first so tables exist. |
 | `kotonoha interchange emit` | Writes a **minimal lineage-only** envelope skeleton (pretty-printed) to stdout. Exit **0**. |
+
+### M1 — workspace, Git, and database context (≥ **0.2.1**, `kotonoha_core` ≥ **0.1.7**)
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha init [--project-id ID] [--path DIR]` | Requires **DIR** (default `.`) to be inside a **Git** repository. Writes **`.kotonoha/config.toml`** with `project_id` (default: directory basename). Not a Git repo → exit **1**. I/O failure → exit **3**. Success → exit **0**. |
+| `kotonoha status [--path DIR]` | Prints repository root, branch or detached HEAD, `commit`, working tree clean/dirty counts, whether `.kotonoha/config.toml` exists, and if **`DATABASE_URL`** is set whether M1 tables exist and `meaning_deltas` row count. Not a Git repo → exit **1**. Success → exit **0**. |
+| `kotonoha diff [--path DIR] [--file PATH]` | Prints unified **unstaged** diff via `kotonoha_core::git` (optional single-file scope). Empty diff prints `(no unstaged diff)`. Exit codes same family as §4 (Git/IO → **1** / **3**). |
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **M1 commands** ([#13](https://github.com/zyx-corporation/kotonoha-cli/issues/13)): `kotonoha init`, `kotonoha status`, `kotonoha diff` — Git context via `kotonoha_core` ≥ **0.1.7**, local `.kotonoha/config.toml`.
+
 ## [0.2.0] — 2026-05-12
 
 ### Added
