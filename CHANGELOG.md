@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-20
+
+### Added
+
+- **M1 commands** ([#14](https://github.com/zyx-corporation/kotonoha-cli/issues/14)): `kotonoha delta create` — Git-anchored MeaningDelta via `PgStore::create_meaning_delta`; `kotonoha rde attach` — RDE JSON to `rde_assessments` via `attach_rde_assessment` (`--delta-id`, `--strict`, `--materialize-document`).
+- Shared `pg_store()` / `store_error_code()` helpers for DB-backed commands.
+
+### Changed
+
+- **[`docs/cli-definition.md`](docs/cli-definition.md)** — M1 § for `delta create` / `rde attach`; §6 traceability rows.
+
+### Added (tests)
+
+- Smoke: `delta create` without `DATABASE_URL` → exit **1** (in Git repo).
+
+## [0.2.1] — 2026-05-20
+
 ### Added
 
 - **M1 commands** ([#13](https://github.com/zyx-corporation/kotonoha-cli/issues/13)): `kotonoha init`, `kotonoha status`, `kotonoha diff` — Git context via `kotonoha_core` ≥ **0.1.7**, local `.kotonoha/config.toml`.

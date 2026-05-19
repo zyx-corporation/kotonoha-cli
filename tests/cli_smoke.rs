@@ -181,6 +181,29 @@ fn git_available() -> bool {
 }
 
 #[test]
+fn delta_create_without_database_url_exits_1() {
+    if !git_available() {
+        return;
+    }
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .status()
+        .expect("git init");
+    std::fs::write(tmp.path().join("note.md"), "hello\n").expect("write");
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .env_remove("DATABASE_URL")
+        .args(["delta", "create", "note.md"])
+        .current_dir(tmp.path())
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("DATABASE_URL"));
+}
+
+#[test]
 fn interchange_validate_strict_exit_2_on_unknown_top_level_envelope_keys() {
     let envelope = concat!(
         "{\n",

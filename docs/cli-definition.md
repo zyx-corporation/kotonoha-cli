@@ -44,6 +44,8 @@ Subcommand groups:
 | `kotonoha init` | Create **`.kotonoha/config.toml`** in a Git repo (M1 workspace bootstrap). |
 | `kotonoha status` | Print Git context, project config, and optional DB summary (`DATABASE_URL`). |
 | `kotonoha diff` | Print **unstaged** `git diff` (optional file scope). |
+| `kotonoha delta` | Create **MeaningDelta** rows anchored to Git (`DATABASE_URL` + M1 schema). |
+| `kotonoha rde attach` | Attach validated RDE JSON to an existing MeaningDelta (`rde_assessments`). |
 
 ### Concrete signatures (Phase 2 baseline — **0.1.x**)
 
@@ -65,6 +67,13 @@ Subcommand groups:
 | `kotonoha init [--project-id ID] [--path DIR]` | Requires **DIR** (default `.`) to be inside a **Git** repository. Writes **`.kotonoha/config.toml`** with `project_id` (default: directory basename). Not a Git repo → exit **1**. I/O failure → exit **3**. Success → exit **0**. |
 | `kotonoha status [--path DIR]` | Prints repository root, branch or detached HEAD, `commit`, working tree clean/dirty counts, whether `.kotonoha/config.toml` exists, and if **`DATABASE_URL`** is set whether M1 tables exist and `meaning_deltas` row count. Not a Git repo → exit **1**. Success → exit **0**. |
 | `kotonoha diff [--path DIR] [--file PATH]` | Prints unified **unstaged** diff via `kotonoha_core::git` (optional single-file scope). Empty diff prints `(no unstaged diff)`. Exit codes same family as §4 (Git/IO → **1** / **3**). |
+
+### M1 — MeaningDelta and RDE attach (≥ **0.2.2**, `kotonoha_core` ≥ **0.1.7**)
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha delta create FILE [--path DIR] [--line-start N] [--line-end N] [--diff-ref REF] [--observation PATH]` | Requires **Git** repo and **`DATABASE_URL`**. Builds [`GitAnchor`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/semantic_lineage.rs) from current `HEAD` (or `"(no commits yet)"` on empty repo) and **FILE** (repo-relative). When neither line range nor `--diff-ref` is given, defaults `diff_ref` to `unstaged:<rel_path>`. **Observation** JSON: omit for `{}`, or pass a file path (same IO rules as `rde validate`). Persists via `PgStore::create_meaning_delta`; prints new **`meaning_deltas.id`** UUID to stdout. Missing **`DATABASE_URL`** → exit **1**. Anchor / validation failure → exit **2**. DB failure → exit **3**. Success → exit **0**. |
+| `kotonoha rde attach --delta-id UUID [--strict] [--materialize-document] [--audit-correlation-id ID] [PATH]` | Reads RDE JSON from **PATH** or stdin. Validates (same rules as `rde validate` when `--strict`). Persists `rde_assessments` row linked to **UUID** via `PgStore::attach_rde_assessment`. Optional **`--materialize-document`** also inserts spec-shaped `rde_documents` and FK. Prints new assessment UUID to stdout. Missing **`DATABASE_URL`** → exit **1**. Validation / lineage errors → exit **2**. DB failure → exit **3**. Success → exit **0**. |
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 
@@ -128,6 +137,8 @@ The CLI **delegates** RDE validation and **interchange envelope** validation to 
 | Conformance keywords | [`docs/introduction.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/introduction.md) |
 | Interchange envelope (`interchange` subcommands) | *(not normative in spec)* — implementation in [`kotonoha-core` `interchange`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/interchange.rs); aligns `spec_bundle` / lineage / nested RDE with spec sections above |
 | **`interchange ingest`** (`kotonoha.console_event.v0`) | *(not normative in spec)* — transport wrapper only; **`body`** validation/traceability identical to rows above for RDE / interchange. Internal event names align with [`20` §2](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/20_phase3_core_console_contract_outline_draft.md) working list. |
+| MeaningDelta (`delta create`) | [`docs/semantic-lineage-model.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/semantic-lineage-model.md); M1 DDL in [`kotonoha-core` `postgresql-schema-m1.md`](https://github.com/zyx-corporation/kotonoha-core/blob/main/docs/postgresql-schema-m1.md) |
+| RDE attach (`rde attach`) | [`docs/rde-review-output.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/rde-review-output.md); table **`rde_assessments`** in M1 schema |
 
 This table **MUST** be updated when new commands tie to additional specification sections.
 
@@ -152,3 +163,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-10 | Cross-link **`cli-requirements.md`** (requirements backlog vs this contract document). |
 | 2026-05-12 | Bare **`kotonoha`** invocation: full help on stdout, exit **0** (**0.1.8**; aligns §4 table with Clap optional subcommand behaviour). |
 | 2026-05-12 | **§4.1** `kotonoha.console_event.v0` + **`interchange ingest`** (**≥ 0.2.0**); Phase 3 ingest path; §6 matrix row. |
+| 2026-05-20 | **M1** `delta create`, `rde attach` (**≥ 0.2.2**); §6 matrix rows for MeaningDelta / RDE assessment. |
