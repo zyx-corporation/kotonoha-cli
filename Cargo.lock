@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "kotonoha-cli"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -743,8 +743,8 @@ dependencies = [
 
 [[package]]
 name = "kotonoha_core"
-version = "0.1.7"
-source = "git+https://github.com/zyx-corporation/kotonoha-core.git?tag=v0.1.7#ac0345bf2d11fdcedb3092d4816d4e187843ff66"
+version = "0.1.8"
+source = "git+https://github.com/zyx-corporation/kotonoha-core.git?tag=v0.1.8#8a0059c7d88854f127b2f6423008ee9593f9c1d5"
 dependencies = [
  "serde",
  "serde_json",
