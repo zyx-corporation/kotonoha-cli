@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-05-20
+
+### Added
+
+- **M1 commands** ([#15](https://github.com/zyx-corporation/kotonoha-cli/issues/15)): `kotonoha review approve|hold|reject`, `kotonoha export` — `record_review_decision` and JSON export (`kotonoha.m1_export.v0.1`); depends on `kotonoha_core` **≥ 0.1.8**.
+- [`scripts/m1_acceptance_demo.sh`](scripts/m1_acceptance_demo.sh) — M1 end-to-end demo when `DATABASE_URL` is set.
+
+### Changed
+
+- **`kotonoha_core`** dependency: branch `feat/core-m1-list-for-export` until tag **`v0.1.8`** is published (then pin tag in `Cargo.toml`).
+
 ## [0.2.2] — 2026-05-20
 
 ### Added
