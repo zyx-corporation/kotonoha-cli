@@ -155,6 +155,7 @@ enum DeltaAction {
         #[arg(long)]
         diff_ref: Option<String>,
         /// Observation JSON (`preserved`, `lost`, …). Omit for `{}`; use `-` file or stdin when wired via shell.
+        #[arg(long)]
         observation: Option<PathBuf>,
     },
 }
