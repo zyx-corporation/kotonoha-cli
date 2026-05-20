@@ -82,7 +82,14 @@ Subcommand groups:
 | Invocation | Behaviour |
 | --- | --- |
 | `kotonoha review approve\|hold\|reject --delta-id UUID [--assessment-id UUID] [--decided-by ID] [--rationale PATH]` | Records [`ReviewDecision`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/semantic_lineage.rs) via `PgStore::record_review_decision`. **`decided_by`** defaults: `--decided-by` → `KOTONOHA_DECIDED_BY` → `git config user.email` → `$USER`. Help text states RDE does **not** substitute for human judgment. Prints decision UUID. Missing **`DATABASE_URL`** → exit **1**. Validation → exit **2**. DB → exit **3**. |
-| `kotonoha export (--delta-id UUID \| --git-commit SHA) [--out FILE]` | Emits JSON **`kotonoha.m1_export.v0.1`** (single delta) or **`kotonoha.m1_export_bundle.v0.1`** (all deltas for commit). Includes `meaning_delta`, `rde_assessments`, `review_decisions`, and `summary_paragraph` (paste-friendly one paragraph). Writes to **FILE** or stdout. Unknown delta → exit **2**. |
+| `kotonoha export (--delta-id UUID \| --git-commit SHA) [--format m1\|m2] [--out FILE]` | Default **`--format m1`**: **`kotonoha.m1_export.v0.1`** or bundle. **`--format m2`**: **`kotonoha.m2_export.v0.1`** — adds `payload_schema_version`, `source_kind`, `validation_report` on assessments and `observation_rde_hints` from core mapping. Writes to **FILE** or stdout. Unknown delta → exit **2**. |
+
+### M2 — RDE metadata and export (≥ **0.2.4**, `kotonoha_core` ≥ **0.1.9**)
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha rde attach --delta-id UUID [--source-kind cli\|llm\|import\|replay] …` | Default **`--source-kind cli`**. Uses `PgStore::validate_and_attach_rde` (validation report stored; **`--strict`** rejects attach when interchange warnings exist). |
+| `kotonoha export … --format m2` | See M1 export row; M2 format ID **`kotonoha.m2_export.v0.1`**. Demo: [`scripts/m2_acceptance_demo.sh`](../scripts/m2_acceptance_demo.sh). |
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 
@@ -176,3 +183,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-12 | **§4.1** `kotonoha.console_event.v0` + **`interchange ingest`** (**≥ 0.2.0**); Phase 3 ingest path; §6 matrix row. |
 | 2026-05-20 | **M1** `delta create`, `rde attach` (**≥ 0.2.2**); §6 matrix rows for MeaningDelta / RDE assessment. |
 | 2026-05-20 | **M1** `review`, `export` (**≥ 0.2.3**); closes CLI track for management#97 M1-f. |
+| 2026-05-22 | **M2** `rde attach --source-kind`, `export --format m2` (**≥ 0.2.4**); depends on core **0.1.9**. |
