@@ -1,8 +1,6 @@
 //! M1/M2 export JSON builders (shared by `export` and `github pr-summary`).
 
-use kotonoha_core::store::postgres::{
-    MeaningDeltaRow, RdeAssessmentRow, ReviewDecisionRow,
-};
+use kotonoha_core::store::postgres::{MeaningDeltaRow, RdeAssessmentRow, ReviewDecisionRow};
 use serde_json::Value;
 
 pub const M1_EXPORT_FORMAT: &str = "kotonoha.m1_export.v0.1";

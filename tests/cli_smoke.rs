@@ -32,10 +32,7 @@ fn github_gh_status_exits_zero_or_one() {
         .output()
         .expect("run gh-status");
     let code = output.status.code().unwrap_or(1);
-    assert!(
-        code == 0 || code == 1,
-        "expected exit 0 or 1, got {code}"
-    );
+    assert!(code == 0 || code == 1, "expected exit 0 or 1, got {code}");
 }
 
 #[test]

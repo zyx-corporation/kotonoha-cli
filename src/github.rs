@@ -178,7 +178,17 @@ pub async fn run(gh: GithubCli) -> i32 {
             head_sha,
             path,
             json,
-        } => cmd_list_pr(&path, pr_number, owner.as_deref(), repo.as_deref(), head_sha.as_deref(), json).await,
+        } => {
+            cmd_list_pr(
+                &path,
+                pr_number,
+                owner.as_deref(),
+                repo.as_deref(),
+                head_sha.as_deref(),
+                json,
+            )
+            .await
+        }
         GithubAction::PrSummary {
             pr_number,
             delta_id,
@@ -288,9 +298,9 @@ async fn cmd_link_issue(
             return store_error_code(&e);
         }
     };
-    let url = issue_url.map(str::to_string).or_else(|| {
-        gh_issue_url(&repo_row.owner, &repo_row.repo, issue_number).ok()
-    });
+    let url = issue_url
+        .map(str::to_string)
+        .or_else(|| gh_issue_url(&repo_row.owner, &repo_row.repo, issue_number).ok());
     match store
         .link_meaning_delta_to_github_issue(repo_row.id, delta_id, issue_number, url.as_deref())
         .await
@@ -345,7 +355,9 @@ async fn cmd_link_pr(
         Some(s) => Some(s),
         None => gh_pr_head_sha(&owner, &repo, pr_number).ok(),
     };
-    let url = pr_url.map(str::to_string).or_else(|| gh_pr_url(&owner, &repo, pr_number).ok());
+    let url = pr_url
+        .map(str::to_string)
+        .or_else(|| gh_pr_url(&owner, &repo, pr_number).ok());
     match store
         .link_meaning_delta_to_github_pr(
             repo_row.id,
@@ -514,7 +526,10 @@ async fn cmd_pr_summary(
         sections.push(export_section_from_m2(&export, loc));
     }
 
-    print!("{}", render_pr_summary_markdown(loc, &repo_row.owner, &repo_row.repo, pr_number, &sections));
+    print!(
+        "{}",
+        render_pr_summary_markdown(loc, &repo_row.owner, &repo_row.repo, pr_number, &sections)
+    );
     0
 }
 
@@ -544,7 +559,11 @@ async fn build_m2_export_for_summary(store: &PgStore, delta_id: uuid::Uuid) -> R
             eprintln!("{e}");
             store_error_code(&e)
         })?;
-    Ok(crate::export_fmt::m2_export_value(&row, &assessments, &decisions))
+    Ok(crate::export_fmt::m2_export_value(
+        &row,
+        &assessments,
+        &decisions,
+    ))
 }
 
 fn export_section_from_m2(export: &Value, loc: SummaryLocale) -> String {
@@ -554,8 +573,14 @@ fn export_section_from_m2(export: &Value, loc: SummaryLocale) -> String {
         .unwrap_or("");
     let delta = export.get("meaning_delta").cloned().unwrap_or(Value::Null);
     let id = delta.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-    let file = delta.get("file_path").and_then(|v| v.as_str()).unwrap_or("?");
-    let commit = delta.get("git_commit").and_then(|v| v.as_str()).unwrap_or("?");
+    let file = delta
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
+    let commit = delta
+        .get("git_commit")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
     let n_rde = export
         .get("rde_assessments")
         .and_then(|v| v.as_array())
@@ -625,7 +650,11 @@ async fn m4_ready(store: &PgStore) -> bool {
     }
 }
 
-fn resolve_owner_repo(path: &Path, owner: Option<&str>, repo: Option<&str>) -> Result<(String, String), i32> {
+fn resolve_owner_repo(
+    path: &Path,
+    owner: Option<&str>,
+    repo: Option<&str>,
+) -> Result<(String, String), i32> {
     if let (Some(o), Some(r)) = (owner, repo) {
         return Ok((o.to_string(), r.to_string()));
     }
@@ -743,7 +772,9 @@ fn gh_pr_head_sha(owner: &str, repo: &str, pr_number: i32) -> Result<String, i32
 }
 
 fn gh_pr_url(owner: &str, repo: &str, pr_number: i32) -> Result<String, i32> {
-    Ok(format!("https://github.com/{owner}/{repo}/pull/{pr_number}"))
+    Ok(format!(
+        "https://github.com/{owner}/{repo}/pull/{pr_number}"
+    ))
 }
 
 fn gh_issue_url(owner: &str, repo: &str, issue_number: i32) -> Result<String, i32> {
@@ -784,14 +815,16 @@ mod tests {
 
     #[test]
     fn parse_https_remote() {
-        let (o, r) = parse_github_remote_url("https://github.com/zyx-corporation/kotonoha-cli.git").unwrap();
+        let (o, r) =
+            parse_github_remote_url("https://github.com/zyx-corporation/kotonoha-cli.git").unwrap();
         assert_eq!(o, "zyx-corporation");
         assert_eq!(r, "kotonoha-cli");
     }
 
     #[test]
     fn parse_ssh_remote() {
-        let (o, r) = parse_github_remote_url("git@github.com:zyx-corporation/kotonoha-core.git").unwrap();
+        let (o, r) =
+            parse_github_remote_url("git@github.com:zyx-corporation/kotonoha-core.git").unwrap();
         assert_eq!(o, "zyx-corporation");
         assert_eq!(r, "kotonoha-core");
     }
