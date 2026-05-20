@@ -43,3 +43,7 @@ jobs:
         env:
           DATABASE_URL: postgres://kotonoha:kotonoha@localhost:5432/kotonoha_test
         run: bash scripts/phase2_acceptance_demo.sh ./target/release/kotonoha
+      - name: M2 acceptance demo (gate script)
+        env:
+          DATABASE_URL: postgres://kotonoha:kotonoha@localhost:5432/kotonoha_test
+        run: bash scripts/m2_acceptance_demo.sh ./target/release/kotonoha

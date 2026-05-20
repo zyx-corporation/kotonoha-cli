@@ -234,6 +234,79 @@ fn export_without_target_exits_1() {
 }
 
 #[test]
+fn rde_attach_invalid_source_kind_exits_1() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .env_remove("DATABASE_URL")
+        .args([
+            "rde",
+            "attach",
+            "--delta-id",
+            "00000000-0000-0000-0000-000000000001",
+            "--source-kind",
+            "not-a-channel",
+        ])
+        .write_stdin("{}")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("source-kind"));
+}
+
+#[test]
+fn rde_attach_without_database_url_exits_1() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .env_remove("DATABASE_URL")
+        .args([
+            "rde",
+            "attach",
+            "--delta-id",
+            "00000000-0000-0000-0000-000000000001",
+        ])
+        .write_stdin("{}")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("DATABASE_URL"));
+}
+
+#[test]
+fn export_unknown_format_exits_1() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args([
+            "export",
+            "--delta-id",
+            "00000000-0000-0000-0000-000000000001",
+            "--format",
+            "v99",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("format"));
+}
+
+#[test]
+fn export_m2_without_database_url_exits_1() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .env_remove("DATABASE_URL")
+        .args([
+            "export",
+            "--delta-id",
+            "00000000-0000-0000-0000-000000000001",
+            "--format",
+            "m2",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("DATABASE_URL"));
+}
+
+#[test]
 fn export_without_database_url_exits_1() {
     Command::cargo_bin("kotonoha")
         .unwrap()

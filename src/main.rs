@@ -72,7 +72,7 @@ enum Commands {
         #[command(subcommand)]
         action: ReviewAction,
     },
-    /// Export MeaningDelta + RDE + review decisions as JSON (M1 audit report).
+    /// Export MeaningDelta + RDE + review decisions as JSON (M1/M2 audit report).
     Export {
         /// Meaning delta UUID (`meaning_deltas.id`).
         #[arg(long, group = "target")]
@@ -80,6 +80,9 @@ enum Commands {
         /// Git commit hash (exports all deltas for that commit).
         #[arg(long, group = "target")]
         git_commit: Option<String>,
+        /// Export format: `m1` (default) or `m2` (RDE meta + observation hints).
+        #[arg(long, default_value = "m1")]
+        format: String,
         /// Write JSON to file instead of stdout.
         #[arg(long)]
         out: Option<PathBuf>,
@@ -88,6 +91,24 @@ enum Commands {
 
 const M1_EXPORT_FORMAT: &str = "kotonoha.m1_export.v0.1";
 const M1_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m1_export_bundle.v0.1";
+const M2_EXPORT_FORMAT: &str = "kotonoha.m2_export.v0.1";
+const M2_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m2_export_bundle.v0.1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExportFormat {
+    M1,
+    M2,
+}
+
+impl ExportFormat {
+    fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "m1" | "kotonoha.m1_export.v0.1" => Some(ExportFormat::M1),
+            "m2" | "kotonoha.m2_export.v0.1" => Some(ExportFormat::M2),
+            _ => None,
+        }
+    }
+}
 
 #[derive(clap::Args)]
 struct ReviewRecordArgs {
@@ -164,6 +185,9 @@ enum RdeAction {
         /// Audit correlation (defaults to RDE `subject_ref` when present).
         #[arg(long)]
         audit_correlation_id: Option<String>,
+        /// Input channel stored on the assessment (`cli`, `llm`, `import`, `replay`).
+        #[arg(long, default_value = "cli")]
+        source_kind: String,
         /// RDE JSON file, or stdin when omitted / `-`.
         path: Option<PathBuf>,
     },
@@ -212,6 +236,7 @@ async fn main() {
                 strict,
                 materialize_document,
                 audit_correlation_id,
+                source_kind,
                 path,
             } => {
                 cmd_rde_attach(
@@ -219,6 +244,7 @@ async fn main() {
                     strict,
                     materialize_document,
                     audit_correlation_id.as_deref(),
+                    &source_kind,
                     path.as_deref(),
                 )
                 .await
@@ -287,8 +313,9 @@ async fn main() {
         Some(Commands::Export {
             delta_id,
             git_commit,
+            format,
             out,
-        }) => cmd_export(delta_id, git_commit.as_deref(), out.as_deref()).await,
+        }) => cmd_export(delta_id, git_commit.as_deref(), &format, out.as_deref()).await,
     };
     process::exit(code);
 }
@@ -485,8 +512,16 @@ fn resolve_decided_by(override_: Option<&str>) -> Result<String, i32> {
 async fn cmd_export(
     delta_id: Option<uuid::Uuid>,
     git_commit: Option<&str>,
+    format: &str,
     out_path: Option<&Path>,
 ) -> i32 {
+    let export_format = match ExportFormat::parse(format) {
+        Some(f) => f,
+        None => {
+            eprintln!("export: unknown --format {format:?} (use m1 or m2)");
+            return 1;
+        }
+    };
     match (delta_id, git_commit) {
         (Some(_), Some(_)) => {
             eprintln!("export: specify only one of --delta-id or --git-commit");
@@ -502,15 +537,27 @@ async fn cmd_export(
         Ok(s) => s,
         Err(c) => return c,
     };
-    let json = match (delta_id, git_commit) {
-        (Some(id), None) => match build_m1_export(&store, id).await {
+    let json = match (delta_id, git_commit, export_format) {
+        (Some(id), None, ExportFormat::M1) => match build_m1_export(&store, id).await {
             Ok(v) => v,
             Err(c) => return c,
         },
-        (None, Some(commit)) => match build_m1_export_bundle(&store, commit).await {
+        (Some(id), None, ExportFormat::M2) => match build_m2_export(&store, id).await {
             Ok(v) => v,
             Err(c) => return c,
         },
+        (None, Some(commit), ExportFormat::M1) => {
+            match build_m1_export_bundle(&store, commit).await {
+                Ok(v) => v,
+                Err(c) => return c,
+            }
+        }
+        (None, Some(commit), ExportFormat::M2) => {
+            match build_m2_export_bundle(&store, commit).await {
+                Ok(v) => v,
+                Err(c) => return c,
+            }
+        }
         _ => unreachable!(),
     };
     let pretty = match serde_json::to_string_pretty(&json) {
@@ -535,6 +582,65 @@ async fn build_m1_export(
     store: &kotonoha_core::store::postgres::PgStore,
     delta_id: uuid::Uuid,
 ) -> Result<Value, i32> {
+    let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
+    Ok(m1_export_value(&row, &assessments, &decisions))
+}
+
+async fn build_m2_export(
+    store: &kotonoha_core::store::postgres::PgStore,
+    delta_id: uuid::Uuid,
+) -> Result<Value, i32> {
+    let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
+    Ok(m2_export_value(&row, &assessments, &decisions))
+}
+
+async fn build_m2_export_bundle(
+    store: &kotonoha_core::store::postgres::PgStore,
+    git_commit: &str,
+) -> Result<Value, i32> {
+    let deltas = store
+        .list_meaning_deltas_by_git_commit(git_commit)
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            store_error_code(&e)
+        })?;
+    let mut exports = Vec::with_capacity(deltas.len());
+    for row in &deltas {
+        let assessments = store
+            .list_rde_assessments_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        let decisions = store
+            .list_review_decisions_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        exports.push(m2_export_value(row, &assessments, &decisions));
+    }
+    Ok(serde_json::json!({
+        "format": M2_EXPORT_BUNDLE_FORMAT,
+        "git_commit": git_commit,
+        "exports": exports,
+    }))
+}
+
+async fn fetch_export_parts(
+    store: &kotonoha_core::store::postgres::PgStore,
+    delta_id: uuid::Uuid,
+) -> Result<
+    (
+        kotonoha_core::store::postgres::MeaningDeltaRow,
+        Vec<kotonoha_core::store::postgres::RdeAssessmentRow>,
+        Vec<kotonoha_core::store::postgres::ReviewDecisionRow>,
+    ),
+    i32,
+> {
     use kotonoha_core::store::postgres::StoreError;
     let row = match store.get_meaning_delta(delta_id).await {
         Ok(Some(r)) => r,
@@ -565,7 +671,7 @@ async fn build_m1_export(
             eprintln!("{}", e);
             store_error_code(&e)
         })?;
-    Ok(m1_export_value(&row, &assessments, &decisions))
+    Ok((row, assessments, decisions))
 }
 
 async fn build_m1_export_bundle(
@@ -602,6 +708,41 @@ async fn build_m1_export_bundle(
         "git_commit": git_commit,
         "exports": exports,
     }))
+}
+
+fn m2_export_value(
+    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
+    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
+    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
+) -> Value {
+    let mut base = m1_export_value(row, assessments, decisions);
+    let obj = base.as_object_mut().expect("export object");
+    obj.insert("format".into(), Value::String(M2_EXPORT_FORMAT.into()));
+    let hints = kotonoha_core::observation_rde::map_observation_to_rde_hints(&row.observation);
+    obj.insert(
+        "observation_rde_hints".into(),
+        serde_json::to_value(&hints).unwrap_or(Value::Null),
+    );
+    let rde_assessments = assessments
+        .iter()
+        .map(|a| {
+            serde_json::json!({
+                "id": a.id,
+                "meaning_delta_id": a.meaning_delta_id,
+                "payload": a.payload,
+                "audit_correlation_id": a.audit_correlation_id,
+                "rde_document_id": a.rde_document_id,
+                "payload_schema_version": a.payload_schema_version,
+                "source_kind": a.source_kind,
+                "validation_report": a.validation_report,
+            })
+        })
+        .collect::<Vec<_>>();
+    obj.insert(
+        "rde_assessments".into(),
+        Value::Array(rde_assessments.into_iter().map(|v| v).collect()),
+    );
+    base
 }
 
 fn m1_export_value(
@@ -670,6 +811,7 @@ async fn cmd_rde_attach(
     strict: bool,
     materialize_document: bool,
     audit_correlation_id: Option<&str>,
+    source_kind: &str,
     path: Option<&Path>,
 ) -> i32 {
     let text = match read_input_text(path) {
@@ -695,22 +837,45 @@ async fn cmd_rde_attach(
             .and_then(|s| s.as_str())
             .map(str::to_string)
     });
+    let kind = match kotonoha_core::rde_attach::RdeSourceKind::parse(source_kind) {
+        Some(k) => k,
+        None => {
+            eprintln!(
+                "invalid --source-kind {source_kind:?} (expected cli, llm, import, or replay)"
+            );
+            return 1;
+        }
+    };
     let store = match pg_store().await {
         Ok(s) => s,
         Err(c) => return c,
     };
     match store
-        .attach_rde_assessment(
+        .validate_and_attach_rde(
             delta_id,
             payload,
             strict,
+            kind,
             correlation.as_deref(),
             materialize_document,
         )
         .await
     {
-        Ok(id) => {
-            println!("{}", id);
+        Ok(result) => {
+            if strict {
+                // warnings already enforced; nothing extra on stderr
+            } else if let Some(arr) = result
+                .validation_report
+                .get("warnings")
+                .and_then(|v| v.as_array())
+            {
+                for w in arr {
+                    if let Some(s) = w.as_str() {
+                        eprintln!("warning: {s}");
+                    }
+                }
+            }
+            println!("{}", result.assessment_id);
             0
         }
         Err(e) => {
