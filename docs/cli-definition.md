@@ -48,6 +48,7 @@ Subcommand groups:
 | `kotonoha rde attach` | Attach validated RDE JSON to an existing MeaningDelta (`rde_assessments`). |
 | `kotonoha review` | Record human **approve** / **hold** / **reject** (`review_decisions`). |
 | `kotonoha export` | JSON audit report (MeaningDelta + RDE + decisions) by `--delta-id` or `--git-commit`. |
+| `kotonoha github` | **M4** — correlate MeaningDelta with GitHub Issue/PR (`github_repository_links` et al.; requires **`kotonoha_core` ≥ 0.1.10**). Uses **`gh`** when resolving PR head SHA. |
 
 ### Concrete signatures (Phase 2 baseline — **0.1.x**)
 
@@ -90,6 +91,19 @@ Subcommand groups:
 | --- | --- |
 | `kotonoha rde attach --delta-id UUID [--source-kind cli\|llm\|import\|replay] …` | Default **`--source-kind cli`**. Uses `PgStore::validate_and_attach_rde` (validation report stored; **`--strict`** rejects attach when interchange warnings exist). |
 | `kotonoha export … --format m2` | See M1 export row; M2 format ID **`kotonoha.m2_export.v0.1`**. Demo: [`scripts/m2_acceptance_demo.sh`](../scripts/m2_acceptance_demo.sh). |
+
+### M4 — GitHub correlation (≥ **0.2.5**, `kotonoha_core` ≥ **0.1.10**)
+
+See [`docs/github-integration.md`](github-integration.md). **`gh`** is optional except for `gh-status` and automatic PR `head_sha` resolution.
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha github gh-status` | Prints `gh` path and `gh auth status` summary. Missing `gh` or auth → exit **1**. |
+| `kotonoha github link repo [--owner O] [--repo R] [--path DIR]` | Upserts `github_repository_links`. Owner/repo from flags or `git remote get-url origin`. |
+| `kotonoha github link issue --delta-id UUID --issue-number N` | Inserts `github_issue_links`. |
+| `kotonoha github link pr --delta-id UUID --pr-number N` | Inserts `github_pull_request_links` (optional `head_sha` via `gh pr view`). |
+| `kotonoha github list-pr --pr-number N [--json]` | Lists correlated MeaningDelta rows. |
+| `kotonoha github pr-summary --pr-number N [--delta-id UUID] [--locale en\|ja]` | Markdown section for PR body (human-accountability banner). |
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 

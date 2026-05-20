@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-05-20
+
+### Added
+
+- **M4** ([#21](https://github.com/zyx-corporation/kotonoha-cli/issues/21)): `kotonoha github` (`link repo|issue|pr`, `list-pr`, `pr-summary`, `gh-status`).
+- GHA template [`.github/workflows/semantic-check.yml`](.github/workflows/semantic-check.yml) ([#22](https://github.com/zyx-corporation/kotonoha-cli/issues/22)).
+- [`docs/github-integration.md`](docs/github-integration.md), Issue/PR templates (en/ja).
+
+### Changed
+
+- Depends on `kotonoha_core` **0.1.10** (Git rev `cab8af50`, M4 GitHub link DDL).
+
 ## [0.2.4] — 2026-05-22
 
 ### Added (tests)
