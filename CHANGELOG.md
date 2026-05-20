@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.2.4] — 2026-05-22
 
+### Added (tests)
+
+- M2 smoke Negative: invalid `--source-kind`, unknown `--format`.
+- [`tests/m2_integration.rs`](tests/m2_integration.rs) — `export --format m2` contract (`DATABASE_URL`).
+- CI: [`scripts/m2_acceptance_demo.sh`](scripts/m2_acceptance_demo.sh) gate.
+
 ### Added
 
 - **M2** ([#20](https://github.com/zyx-corporation/kotonoha-cli/issues/20)): `kotonoha rde attach --source-kind` (cli|llm|import|replay) via `validate_and_attach_rde`; `kotonoha export --format m2` (`kotonoha.m2_export.v0.1` with RDE meta + `observation_rde_hints`).

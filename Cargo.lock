@@ -744,6 +744,7 @@ dependencies = [
 [[package]]
 name = "kotonoha_core"
 version = "0.1.9"
+source = "git+https://github.com/zyx-corporation/kotonoha-core.git?branch=feat/m2-rde-record-integration#34c3e9cc4a26a2762b52311ed3e599fe3ca9c332"
 dependencies = [
  "serde",
  "serde_json",
