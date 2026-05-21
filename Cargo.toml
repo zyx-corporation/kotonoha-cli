@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-kotonoha_core = { git = "https://github.com/zyx-corporation/kotonoha-core.git", rev = "fc88680f2c2c71204c4e203966bfd7e7ba5a46f4", features = ["postgres"] }
+kotonoha_core = { git = "https://github.com/zyx-corporation/kotonoha-core.git", rev = "761555b3280580056d951e5e566206a5b398f015", features = ["postgres"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = { version = "1", features = ["serde"] }
