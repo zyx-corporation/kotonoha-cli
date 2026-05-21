@@ -8,7 +8,7 @@ Pattern A (§4.1): LLM produces RDE draft → human reads → `kotonoha rde vali
 
 | `26` pattern A step | M5 MVP implementation | Notes |
 | --- | --- | --- |
-| LLM generates RDE draft JSON | Channel (future MCP) or manual `rde emit` / file | MVP: **CLI demo** only — **P1-a:** [`33`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/33_m5_channel_operations_followup_plan_draft.md) §4 |
+| LLM generates RDE draft JSON | MCP tools or manual `rde emit` / file | [`kotonoha-mcp`](https://github.com/zyx-corporation/kotonoha-mcp) 0.2.0 |
 | Human reads meaning / responsibility | **Required** — not automated in M5 | VS Code M3 or operator review |
 | `kotonoha rde validate [--strict]` | `kotonoha rde validate --strict` | Unchanged; MCP tool `kotonoha_rde_validate` |
 | Persist / attach to lineage | `rde attach --source-kind llm` + `agent delta create` | AgentRun links via `meaning_deltas.agent_run_id` |
