@@ -98,5 +98,6 @@ pub fn default_start_input(agent_kind: &str) -> StartAgentRunInput {
         capability_profile: Some(PROFILE_AGENT.to_string()),
         parent_run_id: None,
         payload: serde_json::Value::Object(serde_json::Map::new()),
+        principal_id: None,
     }
 }

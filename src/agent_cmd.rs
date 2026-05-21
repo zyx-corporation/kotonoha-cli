@@ -200,11 +200,13 @@ async fn cmd_agent_record_start(
         eprintln!("M5 agent_runs schema missing — run `kotonoha db migrate`");
         return 1;
     }
+    let m6 = crate::m6_context::M6EnvContext::from_env();
     let mut input = default_start_input(agent_kind);
     input.external_ref = external_ref.map(str::to_string);
     input.capability_profile = Some(capability_profile.to_string());
     input.parent_run_id = parent_run_id;
     input.payload = payload;
+    input.principal_id = m6.principal_id;
     match store.start_agent_run(&input).await {
         Ok(run) => {
             println!("{}", run.id);
@@ -299,6 +301,7 @@ async fn cmd_agent_delta_create(
             None
         }
     });
+    let m6 = crate::m6_context::M6EnvContext::from_env();
     let input = MeaningDeltaInput {
         document_object_id: None,
         prior_meaning_state_id: None,
@@ -313,6 +316,8 @@ async fn cmd_agent_delta_create(
         },
         observation,
         source_context: Value::Object(Default::default()),
+        project_id: m6.project_id,
+        acting_principal_id: m6.principal_id,
     };
     match store.create_meaning_delta(&input).await {
         Ok(id) => {

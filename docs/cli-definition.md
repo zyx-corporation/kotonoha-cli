@@ -84,7 +84,7 @@ Subcommand groups:
 
 | Invocation | Behaviour |
 | --- | --- |
-| `kotonoha review approve\|hold\|reject --delta-id UUID [--assessment-id UUID] [--decided-by ID] [--rationale PATH]` | Records [`ReviewDecision`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/semantic_lineage.rs) via `PgStore::record_review_decision`. **`decided_by`** defaults: `--decided-by` → `KOTONOHA_DECIDED_BY` → `git config user.email` → `$USER`. Help text states RDE does **not** substitute for human judgment. Prints decision UUID. Missing **`DATABASE_URL`** → exit **1**. Validation → exit **2**. DB → exit **3**. |
+| `kotonoha review approve\|hold\|reject --delta-id UUID [--assessment-id UUID] [--decided-by ID] [--rationale PATH]` | Records [`ReviewDecision`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/semantic_lineage.rs) via `PgStore::record_review_decision`. **`decided_by`** defaults: `--decided-by` → `KOTONOHA_DECIDED_BY` → `git config user.email` → `$USER`. **M6:** `KOTONOHA_PRINCIPAL_ID` (required when M6 schema present) sets `principal_id` on the decision row. Help text states RDE does **not** substitute for human judgment. Prints decision UUID. Missing **`DATABASE_URL`** → exit **1**. Validation → exit **2**. DB → exit **3**. |
 | `kotonoha export (--delta-id UUID \| --git-commit SHA) [--format m1\|m2] [--out FILE]` | Default **`--format m1`**: **`kotonoha.m1_export.v0.1`** or bundle. **`--format m2`**: **`kotonoha.m2_export.v0.1`** — adds `payload_schema_version`, `source_kind`, `validation_report` on assessments and `observation_rde_hints` from core mapping. Writes to **FILE** or stdout. Unknown delta → exit **2**. |
 
 ### M2 — RDE metadata and export (≥ **0.2.4**, `kotonoha_core` ≥ **0.1.9**)
@@ -121,6 +121,15 @@ Normative product outline: [`31_m5_agent_run_integration_spec_draft.md`](https:/
 | `kotonoha review approve\|hold\|reject … [--agent-run-id UUID]` | When **`--agent-run-id`** or env **`KOTONOHA_AGENT_RUN_ID`** is set, **deny-by-default** for agent channel (e.g. `review.approve`) → append **`denied_actions`**, bilingual message on stderr, exit **2** (no `review_decisions` row). Human path omits agent context. |
 
 Denied actions (informative): `review.*`, `git.push`, `git.commit`, `shell` — see spec §6.1.
+
+**M6 environment (Team Mode):**
+
+| Variable | Used by |
+| --- | --- |
+| `KOTONOHA_PRINCIPAL_ID` | `agent record start`, `review *`, `rde attach` (RBAC actor); required when M6 schema is present |
+| `KOTONOHA_PROJECT_ID` | `delta create`, `agent delta create` (scopes `meaning_deltas.project_id`) |
+
+Gateway and MCP set these on the child CLI process (see `kotonoha-management` M6 spec).
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 
