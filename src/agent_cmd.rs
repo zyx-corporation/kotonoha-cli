@@ -7,7 +7,7 @@ use kotonoha_core::semantic_lineage::{GitAnchor, MeaningDeltaInput};
 use kotonoha_core::store::AgentRunStatus;
 use serde_json::Value;
 
-use crate::capability::{default_start_input, PROFILE_AGENT};
+use crate::capability::{default_start_input, deny_if_agent_context, is_denied_in_agent_context, PROFILE_AGENT};
 
 #[derive(Subcommand)]
 pub enum AgentAction {
@@ -20,6 +20,22 @@ pub enum AgentAction {
     Delta {
         #[command(subcommand)]
         action: AgentDeltaAction,
+    },
+    /// Explicit capability probe for agent channel (M5-P1b-1).
+    Capability {
+        #[command(subcommand)]
+        action: AgentCapabilityAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AgentCapabilityAction {
+    /// Check whether `ACTION` is allowed for `--agent-run-id` (deny → exit **2** + `denied_actions`).
+    Check {
+        #[arg(long)]
+        action: String,
+        #[arg(long)]
+        agent_run_id: uuid::Uuid,
     },
 }
 
@@ -93,6 +109,12 @@ pub async fn run(action: AgentAction) -> i32 {
                 output_artifacts,
             } => cmd_agent_record_complete(run_id, output_artifacts.as_deref()).await,
         },
+        AgentAction::Capability { action } => match action {
+            AgentCapabilityAction::Check {
+                action,
+                agent_run_id,
+            } => cmd_agent_capability_check(&action, agent_run_id).await,
+        },
         AgentAction::Delta { action } => match action {
             AgentDeltaAction::Create {
                 file,
@@ -116,6 +138,47 @@ pub async fn run(action: AgentAction) -> i32 {
             }
         },
     }
+}
+
+async fn cmd_agent_capability_check(action: &str, agent_run_id: uuid::Uuid) -> i32 {
+    let store = match crate::pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    if !store.m5_schema_present().await.unwrap_or(false) {
+        eprintln!("M5 agent_runs schema missing — run `kotonoha db migrate`");
+        return 1;
+    }
+    let run = match store.get_agent_run(agent_run_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            eprintln!("agent run not found: {agent_run_id}");
+            return 2;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return crate::store_error_code(&e);
+        }
+    };
+    if is_denied_in_agent_context(action) {
+        return match deny_if_agent_context(&store, agent_run_id, action).await {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+    }
+    let profile = run
+        .capability_profile
+        .clone()
+        .unwrap_or_else(|| PROFILE_AGENT.to_string());
+    let payload = serde_json::json!({
+        "format": "kotonoha.agent_capability_check.v0.1",
+        "allowed": true,
+        "action": action,
+        "agent_run_id": agent_run_id,
+        "capability_profile": profile,
+    });
+    println!("{}", serde_json::to_string_pretty(&payload).unwrap_or_default());
+    0
 }
 
 async fn cmd_agent_record_start(
