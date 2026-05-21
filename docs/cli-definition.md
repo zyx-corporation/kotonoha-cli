@@ -85,7 +85,7 @@ Subcommand groups:
 | Invocation | Behaviour |
 | --- | --- |
 | `kotonoha review approve\|hold\|reject --delta-id UUID [--assessment-id UUID] [--decided-by ID] [--rationale PATH]` | Records [`ReviewDecision`](https://github.com/zyx-corporation/kotonoha-core/blob/main/src/semantic_lineage.rs) via `PgStore::record_review_decision`. **`decided_by`** defaults: `--decided-by` → `KOTONOHA_DECIDED_BY` → `git config user.email` → `$USER`. **M6:** `KOTONOHA_PRINCIPAL_ID` (required when M6 schema present) sets `principal_id` on the decision row. Help text states RDE does **not** substitute for human judgment. Prints decision UUID. Missing **`DATABASE_URL`** → exit **1**. Validation → exit **2**. DB → exit **3**. |
-| `kotonoha export (--delta-id UUID \| --git-commit SHA) [--format m1\|m2] [--out FILE]` | Default **`--format m1`**: **`kotonoha.m1_export.v0.1`** or bundle. **`--format m2`**: **`kotonoha.m2_export.v0.1`** — adds `payload_schema_version`, `source_kind`, `validation_report` on assessments and `observation_rde_hints` from core mapping. Writes to **FILE** or stdout. Unknown delta → exit **2**. |
+| `kotonoha export (--delta-id UUID \| --git-commit SHA) [--project-id UUID] [--format m1\|m2\|m6] [--out FILE]` | Default **`--format m1`**: **`kotonoha.m1_export.v0.1`** or bundle. **`--format m2`**: **`kotonoha.m2_export.v0.1`**. **`--format m6`**: **`kotonoha.m6_project_audit_export.v0.1`** — project-scoped bundle (requires **`--project-id`** or **`KOTONOHA_PROJECT_ID`**; RBAC **`viewer`**+). **`--git-commit`** with **`--project-id`** lists only deltas in that project. Writes to **FILE** or stdout. Unknown delta → exit **2**. |
 
 ### M2 — RDE metadata and export (≥ **0.2.4**, `kotonoha_core` ≥ **0.1.9**)
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.9] — 2026-05-21
+
+### Added
+
+- **M6-f** ([#138](https://github.com/zyx-corporation/kotonoha-management/issues/138)): `kotonoha export --format m6` project-scoped audit bundle (`kotonoha.m6_project_audit_export.v0.1`); `--project-id` filter on git-commit exports; [`tests/m6_integration.rs`](tests/m6_integration.rs).
+
 ## [0.2.8] — 2026-05-21
 
 ### Added
