@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.8] — 2026-05-21
+
 ### Added
+
+- **M6-c** ([#138](https://github.com/zyx-corporation/kotonoha-management/issues/138)): `KOTONOHA_PRINCIPAL_ID` / `KOTONOHA_PROJECT_ID` propagated to `PgStore` on agent, delta, review, and rde attach.
+
+### Added (prior)
 
 - **M5-e** ([#115](https://github.com/zyx-corporation/kotonoha-management/issues/115)): [`scripts/m5_agent_run_demo.sh`](scripts/m5_agent_run_demo.sh), [`docs/ui-design-review-m5.md`](docs/ui-design-review-m5.md), [`docs/m5_llm_pattern_a_convergence.md`](docs/m5_llm_pattern_a_convergence.md).
 

@@ -5,6 +5,7 @@ mod capability;
 mod context_cmd;
 mod export_fmt;
 mod github;
+mod m6_context;
 mod project;
 
 use std::io::{self, Read, Write};
@@ -419,6 +420,7 @@ async fn cmd_delta_create(
             None
         }
     });
+    let m6 = m6_context::M6EnvContext::from_env();
     let input = kotonoha_core::semantic_lineage::MeaningDeltaInput {
         document_object_id: None,
         prior_meaning_state_id: None,
@@ -433,6 +435,8 @@ async fn cmd_delta_create(
         },
         observation,
         source_context: Value::Object(Default::default()),
+        project_id: m6.project_id,
+        acting_principal_id: m6.principal_id,
     };
     let store = match pg_store().await {
         Ok(s) => s,
@@ -493,12 +497,14 @@ async fn cmd_review_record(
         Ok(v) => v,
         Err(code) => return code,
     };
+    let m6 = m6_context::M6EnvContext::from_env();
     let input = kotonoha_core::semantic_lineage::RecordReviewDecisionInput {
         meaning_delta_id: args.delta_id,
         rde_assessment_id: args.assessment_id,
         decision,
         decided_by,
         rationale,
+        principal_id: m6.principal_id,
     };
     match store.record_review_decision(&input).await {
         Ok(id) => {
@@ -789,6 +795,7 @@ async fn cmd_rde_attach(
             return 1;
         }
     };
+    let m6 = m6_context::M6EnvContext::from_env();
     let store = match pg_store().await {
         Ok(s) => s,
         Err(c) => return c,
@@ -801,6 +808,7 @@ async fn cmd_rde_attach(
             kind,
             correlation.as_deref(),
             materialize_document,
+            m6.principal_id,
         )
         .await
     {
