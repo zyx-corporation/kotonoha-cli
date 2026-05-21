@@ -73,7 +73,13 @@ fn m2_export_contract_after_attach_with_source_kind() {
 
     let delta_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
-        .args(["delta", "create", "note.md", obs_path.to_str().unwrap()])
+        .args([
+            "delta",
+            "create",
+            "note.md",
+            "--observation",
+            obs_path.to_str().unwrap(),
+        ])
         .current_dir(tmp.path())
         .assert()
         .success();

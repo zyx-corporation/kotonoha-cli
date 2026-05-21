@@ -1,5 +1,7 @@
 //! `kotonoha` — CLI entry (argument parsing and UX). Domain logic comes from [`kotonoha_core`].
 
+mod export_fmt;
+mod github;
 mod project;
 
 use std::io::{self, Read, Write};
@@ -72,6 +74,11 @@ enum Commands {
         #[command(subcommand)]
         action: ReviewAction,
     },
+    /// GitHub Issue/PR correlation (M4; requires `gh` for live API).
+    Github {
+        #[command(subcommand)]
+        action: github::GithubAction,
+    },
     /// Export MeaningDelta + RDE + review decisions as JSON (M1/M2 audit report).
     Export {
         /// Meaning delta UUID (`meaning_deltas.id`).
@@ -89,9 +96,7 @@ enum Commands {
     },
 }
 
-const M1_EXPORT_FORMAT: &str = "kotonoha.m1_export.v0.1";
 const M1_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m1_export_bundle.v0.1";
-const M2_EXPORT_FORMAT: &str = "kotonoha.m2_export.v0.1";
 const M2_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m2_export_bundle.v0.1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,6 +155,7 @@ enum DeltaAction {
         #[arg(long)]
         diff_ref: Option<String>,
         /// Observation JSON (`preserved`, `lost`, …). Omit for `{}`; use `-` file or stdin when wired via shell.
+        #[arg(long)]
         observation: Option<PathBuf>,
     },
 }
@@ -316,6 +322,7 @@ async fn main() {
             format,
             out,
         }) => cmd_export(delta_id, git_commit.as_deref(), &format, out.as_deref()).await,
+        Some(Commands::Github { action }) => github::run(github::GithubCli { action }).await,
     };
     process::exit(code);
 }
@@ -583,7 +590,7 @@ async fn build_m1_export(
     delta_id: uuid::Uuid,
 ) -> Result<Value, i32> {
     let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
-    Ok(m1_export_value(&row, &assessments, &decisions))
+    Ok(export_fmt::m1_export_value(&row, &assessments, &decisions))
 }
 
 async fn build_m2_export(
@@ -591,7 +598,7 @@ async fn build_m2_export(
     delta_id: uuid::Uuid,
 ) -> Result<Value, i32> {
     let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
-    Ok(m2_export_value(&row, &assessments, &decisions))
+    Ok(export_fmt::m2_export_value(&row, &assessments, &decisions))
 }
 
 async fn build_m2_export_bundle(
@@ -621,7 +628,7 @@ async fn build_m2_export_bundle(
                 eprintln!("{}", e);
                 store_error_code(&e)
             })?;
-        exports.push(m2_export_value(row, &assessments, &decisions));
+        exports.push(export_fmt::m2_export_value(row, &assessments, &decisions));
     }
     Ok(serde_json::json!({
         "format": M2_EXPORT_BUNDLE_FORMAT,
@@ -701,109 +708,13 @@ async fn build_m1_export_bundle(
                 eprintln!("{}", e);
                 store_error_code(&e)
             })?;
-        exports.push(m1_export_value(row, &assessments, &decisions));
+        exports.push(export_fmt::m1_export_value(row, &assessments, &decisions));
     }
     Ok(serde_json::json!({
         "format": M1_EXPORT_BUNDLE_FORMAT,
         "git_commit": git_commit,
         "exports": exports,
     }))
-}
-
-fn m2_export_value(
-    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
-    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
-    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
-) -> Value {
-    let mut base = m1_export_value(row, assessments, decisions);
-    let obj = base.as_object_mut().expect("export object");
-    obj.insert("format".into(), Value::String(M2_EXPORT_FORMAT.into()));
-    let hints = kotonoha_core::observation_rde::map_observation_to_rde_hints(&row.observation);
-    obj.insert(
-        "observation_rde_hints".into(),
-        serde_json::to_value(&hints).unwrap_or(Value::Null),
-    );
-    let rde_assessments = assessments
-        .iter()
-        .map(|a| {
-            serde_json::json!({
-                "id": a.id,
-                "meaning_delta_id": a.meaning_delta_id,
-                "payload": a.payload,
-                "audit_correlation_id": a.audit_correlation_id,
-                "rde_document_id": a.rde_document_id,
-                "payload_schema_version": a.payload_schema_version,
-                "source_kind": a.source_kind,
-                "validation_report": a.validation_report,
-            })
-        })
-        .collect::<Vec<_>>();
-    obj.insert(
-        "rde_assessments".into(),
-        Value::Array(rde_assessments.into_iter().map(|v| v).collect()),
-    );
-    base
-}
-
-fn m1_export_value(
-    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
-    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
-    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
-) -> Value {
-    let generated_at_unix = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let summary = build_summary_paragraph(row, assessments, decisions);
-    serde_json::json!({
-        "format": M1_EXPORT_FORMAT,
-        "generated_at_unix": generated_at_unix,
-        "meaning_delta": {
-            "id": row.id,
-            "git_commit": row.git_commit,
-            "file_path": row.file_path,
-            "line_range_start": row.line_range_start,
-            "line_range_end": row.line_range_end,
-            "diff_ref": row.diff_ref,
-            "observation": row.observation,
-            "source_context": row.source_context,
-        },
-        "rde_assessments": assessments.iter().map(|a| serde_json::json!({
-            "id": a.id,
-            "meaning_delta_id": a.meaning_delta_id,
-            "payload": a.payload,
-            "audit_correlation_id": a.audit_correlation_id,
-            "rde_document_id": a.rde_document_id,
-        })).collect::<Vec<_>>(),
-        "review_decisions": decisions.iter().map(|d| serde_json::json!({
-            "id": d.id,
-            "meaning_delta_id": d.meaning_delta_id,
-            "rde_assessment_id": d.rde_assessment_id,
-            "decision": d.decision,
-            "decided_by": d.decided_by,
-            "rationale": d.rationale,
-        })).collect::<Vec<_>>(),
-        "summary_paragraph": summary,
-    })
-}
-
-fn build_summary_paragraph(
-    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
-    assessments: &[kotonoha_core::store::postgres::RdeAssessmentRow],
-    decisions: &[kotonoha_core::store::postgres::ReviewDecisionRow],
-) -> String {
-    let latest = decisions.first();
-    let decision_part = latest.map_or_else(
-        || "no review decision recorded yet".to_string(),
-        |d| format!("latest decision `{}` by {}", d.decision, d.decided_by),
-    );
-    format!(
-        "Meaning change in `{}` at commit {}: {} RDE assessment(s); {}.",
-        row.file_path,
-        row.git_commit,
-        assessments.len(),
-        decision_part
-    )
 }
 
 async fn cmd_rde_attach(

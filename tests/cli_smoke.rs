@@ -14,6 +14,28 @@ fn bare_invocation_prints_usage_and_succeeds() {
 }
 
 #[test]
+fn github_help_lists_link_subcommands() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["github", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("link"))
+        .stdout(predicate::str::contains("pr-summary"));
+}
+
+#[test]
+fn github_gh_status_exits_zero_or_one() {
+    let output = Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["github", "gh-status"])
+        .output()
+        .expect("run gh-status");
+    let code = output.status.code().unwrap_or(1);
+    assert!(code == 0 || code == 1, "expected exit 0 or 1, got {code}");
+}
+
+#[test]
 fn version_prints_binary_and_spec_bundle() {
     Command::cargo_bin("kotonoha")
         .unwrap()

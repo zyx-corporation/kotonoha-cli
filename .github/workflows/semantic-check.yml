@@ -1,0 +1,43 @@
+# M4 semantic check — validate interchange / RDE JSON on pull requests.
+# Copy into consumer repositories (see docs/github-integration.md).
+#
+# Parent: https://github.com/zyx-corporation/kotonoha-management/issues/105 (M4-c)
+
+name: kotonoha semantic check
+
+on:
+  pull_request:
+    paths:
+      - "**/*.json"
+      - ".github/workflows/semantic-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build kotonoha CLI
+        run: cargo build --release --locked
+
+      - name: Validate example JSON (strict, if present)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bin=./target/release/kotonoha
+          "$bin" version
+          found=0
+          for f in examples/interchange/*.json examples/rde/*.json; do
+            found=1
+            echo "==> interchange validate $f"
+            "$bin" interchange validate --strict "$f"
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No fixtures under examples/interchange or examples/rde — OK for template-only repos"
+          fi

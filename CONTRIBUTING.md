@@ -8,6 +8,13 @@ For a reproducible command sequence (version, RDE / interchange validation, opti
 
 **Automated script (same checks as the tutorial, plus invalid-JSON exit‑2 check):** [`scripts/phase2_acceptance_demo.sh`](scripts/phase2_acceptance_demo.sh) — run after `cargo build --release`; set `DATABASE_URL` to exercise `db migrate` and `interchange store`. CI runs this script on `main` / pull requests with PostgreSQL.
 
+## M4 — GitHub integration
+
+- **Commands:** [`docs/github-integration.md`](docs/github-integration.md) · [`docs/cli-definition.md`](docs/cli-definition.md) §M4
+- **CI template:** [`.github/workflows/semantic-check.yml`](.github/workflows/semantic-check.yml) — copy into consumer repos for PR semantic checks
+- **Demo:** [`scripts/m4_github_demo.sh`](scripts/m4_github_demo.sh) (requires `DATABASE_URL`; uses `gh` when authenticated)
+- **Issue/PR templates (en/ja):** [`docs/templates/github/`](docs/templates/github/)
+
 ## Workflow
 
 Organization **Git/Issue/branch/PR** rules (**no direct edits to `main`**): **[`docs/git_operation_rules.md`](docs/git_operation_rules.md)** (Japanese; self-contained in this repo).
