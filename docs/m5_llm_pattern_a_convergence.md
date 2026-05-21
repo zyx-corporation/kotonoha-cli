@@ -8,8 +8,8 @@ Pattern A (§4.1): LLM produces RDE draft → human reads → `kotonoha rde vali
 
 | `26` pattern A step | M5 MVP implementation | Notes |
 | --- | --- | --- |
-| LLM generates RDE draft JSON | MCP tools or manual `rde emit` / file | [`kotonoha-mcp`](https://github.com/zyx-corporation/kotonoha-mcp) 0.2.0 |
-| Human reads meaning / responsibility | **Required** — not automated in M5 | VS Code M3 or operator review |
+| LLM generates RDE draft JSON | MCP tools or manual `rde emit` / file | [`kotonoha-mcp`](https://github.com/zyx-corporation/kotonoha-mcp) ≥ 0.4.0 |
+| Human reads meaning / responsibility | **Required** — Agent Approve UI + M3 + CLI | [`05`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/chatgpt-app/05_agent_approve_ui_draft.md) · #136 |
 | `kotonoha rde validate [--strict]` | `kotonoha rde validate --strict` | Unchanged; MCP tool `kotonoha_rde_validate` |
 | Persist / attach to lineage | `rde attach --source-kind llm` + `agent delta create` | AgentRun links via `meaning_deltas.agent_run_id` |
 | Trust boundary after LLM output | `validate` before attach; invalid → exit **2** | Same as M2 |
@@ -22,10 +22,14 @@ Pattern A (§4.1): LLM produces RDE draft → human reads → `kotonoha rde vali
 | Context for LLM prompt | `kotonoha context export` → `kotonoha.context_pack.v0.1` |
 | Agent accountability | `agent_runs` + `denied_actions` |
 | Deny human-only actions on agent path | `review *` with `--agent-run-id` / `KOTONOHA_AGENT_RUN_ID` |
+| Human approve in Agent channel | `kotonoha_review_{approve,hold,reject}` MCP | No `--agent-run-id` · #136 |
 
 ## Demo
 
-[`scripts/m5_agent_run_demo.sh`](../scripts/m5_agent_run_demo.sh) — end-to-end Pattern A + AgentRun + capability deny.
+| Script | Channel |
+| --- | --- |
+| [`m5_agent_run_demo.sh`](../scripts/m5_agent_run_demo.sh) | CLI |
+| [`m5_mcp_e2e.ts`](https://github.com/zyx-corporation/kotonoha-mcp/blob/main/scripts/m5_mcp_e2e.ts) | MCP stdio（step 8 = `kotonoha_review_approve`） |
 
 ## References
 
