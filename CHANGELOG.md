@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **M5-e** ([#115](https://github.com/zyx-corporation/kotonoha-management/issues/115)): [`scripts/m5_agent_run_demo.sh`](scripts/m5_agent_run_demo.sh), [`docs/ui-design-review-m5.md`](docs/ui-design-review-m5.md), [`docs/m5_llm_pattern_a_convergence.md`](docs/m5_llm_pattern_a_convergence.md).
+
+## [0.2.6] — 2026-05-21
+
+### Added
+
+- **M5** ([#23](https://github.com/zyx-corporation/kotonoha-cli/issues/23)): `kotonoha context export` (`kotonoha.context_pack.v0.1`, no DB); `kotonoha agent record start|complete`; `kotonoha agent delta create`; agent-channel deny for `review *` via `--agent-run-id` / `KOTONOHA_AGENT_RUN_ID` (exit **2** + `denied_actions`).
+- [`tests/m5_integration.rs`](tests/m5_integration.rs) — AgentRun + capability deny E2E (requires `DATABASE_URL`).
+
+### Changed
+
+- Depends on `kotonoha_core` **0.1.12** (context pack + M5 AgentRun; requires [core#40](https://github.com/zyx-corporation/kotonoha-core/pull/40)).
+
 ## [0.2.5] — 2026-05-20
 
 ### Added

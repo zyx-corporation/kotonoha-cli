@@ -1,5 +1,8 @@
 //! `kotonoha` — CLI entry (argument parsing and UX). Domain logic comes from [`kotonoha_core`].
 
+mod agent_cmd;
+mod capability;
+mod context_cmd;
 mod export_fmt;
 mod github;
 mod project;
@@ -79,6 +82,16 @@ enum Commands {
         #[command(subcommand)]
         action: github::GithubAction,
     },
+    /// M5 context pack for external agent channels (Git only; no `DATABASE_URL`).
+    Context {
+        #[command(subcommand)]
+        action: ContextAction,
+    },
+    /// M5 AgentRun record and agent-scoped MeaningDelta (`DATABASE_URL`).
+    Agent {
+        #[command(subcommand)]
+        action: agent_cmd::AgentAction,
+    },
     /// Export MeaningDelta + RDE + review decisions as JSON (M1/M2 audit report).
     Export {
         /// Meaning delta UUID (`meaning_deltas.id`).
@@ -115,12 +128,21 @@ impl ExportFormat {
     }
 }
 
+#[derive(Subcommand)]
+enum ContextAction {
+    /// Export `kotonoha.context_pack.v0.1` JSON to stdout.
+    Export(context_cmd::ContextExportArgs),
+}
+
 #[derive(clap::Args)]
 struct ReviewRecordArgs {
     #[arg(long)]
     delta_id: uuid::Uuid,
     #[arg(long)]
     assessment_id: Option<uuid::Uuid>,
+    /// When set (or `KOTONOHA_AGENT_RUN_ID`), forbidden actions are denied and logged on the AgentRun.
+    #[arg(long)]
+    agent_run_id: Option<uuid::Uuid>,
     /// Reviewer identity (defaults: `KOTONOHA_DECIDED_BY`, `git config user.email`, `$USER`).
     #[arg(long)]
     decided_by: Option<String>,
@@ -323,11 +345,15 @@ async fn main() {
             out,
         }) => cmd_export(delta_id, git_commit.as_deref(), &format, out.as_deref()).await,
         Some(Commands::Github { action }) => github::run(github::GithubCli { action }).await,
+        Some(Commands::Context { action }) => match action {
+            ContextAction::Export(args) => context_cmd::run(&args),
+        },
+        Some(Commands::Agent { action }) => agent_cmd::run(action).await,
     };
     process::exit(code);
 }
 
-fn store_error_code(e: &kotonoha_core::store::postgres::StoreError) -> i32 {
+pub(crate) fn store_error_code(e: &kotonoha_core::store::postgres::StoreError) -> i32 {
     use kotonoha_core::store::postgres::StoreError;
     match e {
         StoreError::InterchangeValidation(_)
@@ -340,7 +366,7 @@ fn store_error_code(e: &kotonoha_core::store::postgres::StoreError) -> i32 {
     }
 }
 
-async fn pg_store() -> Result<kotonoha_core::store::postgres::PgStore, i32> {
+pub(crate) async fn pg_store() -> Result<kotonoha_core::store::postgres::PgStore, i32> {
     let url = match std::env::var("DATABASE_URL") {
         Ok(u) => u,
         Err(_) => {
@@ -449,6 +475,16 @@ async fn cmd_review_record(
     decision: kotonoha_core::semantic_lineage::ReviewDecisionKind,
     args: &ReviewRecordArgs,
 ) -> i32 {
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    if let Some(run_id) = agent_cmd::resolve_agent_run_id(args.agent_run_id) {
+        let action = capability::action_for_review(decision);
+        if let Err(c) = capability::deny_if_agent_context(&store, run_id, action).await {
+            return c;
+        }
+    }
     let decided_by = match resolve_decided_by(args.decided_by.as_deref()) {
         Ok(s) => s,
         Err(c) => return c,
@@ -463,10 +499,6 @@ async fn cmd_review_record(
         decision,
         decided_by,
         rationale,
-    };
-    let store = match pg_store().await {
-        Ok(s) => s,
-        Err(c) => return c,
     };
     match store.record_review_decision(&input).await {
         Ok(id) => {
@@ -1246,7 +1278,7 @@ async fn cmd_interchange_store_from_envelope(envelope_json: &str, strict: bool) 
 }
 
 /// Returns `(exit_code, Option<error_message>)` on I/O or UTF-8 failure.
-fn read_input_text(path: Option<&Path>) -> Result<String, (i32, Option<String>)> {
+pub(crate) fn read_input_text(path: Option<&Path>) -> Result<String, (i32, Option<String>)> {
     let mut buf = Vec::new();
     match load_input(path, &mut buf) {
         Ok(()) => {}
