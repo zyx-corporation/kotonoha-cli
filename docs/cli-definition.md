@@ -49,6 +49,8 @@ Subcommand groups:
 | `kotonoha review` | Record human **approve** / **hold** / **reject** (`review_decisions`). |
 | `kotonoha export` | JSON audit report (MeaningDelta + RDE + decisions) by `--delta-id` or `--git-commit`. |
 | `kotonoha github` | **M4** — correlate MeaningDelta with GitHub Issue/PR (`github_repository_links` et al.; requires **`kotonoha_core` ≥ 0.1.10**). Uses **`gh`** when resolving PR head SHA. |
+| `kotonoha context` | **M5** — export context pack JSON for agent channels (Git only). |
+| `kotonoha agent` | **M5** — AgentRun lifecycle and agent-scoped MeaningDelta (`DATABASE_URL`). |
 
 ### Concrete signatures (Phase 2 baseline — **0.1.x**)
 
@@ -104,6 +106,20 @@ See [`docs/github-integration.md`](github-integration.md). **`gh`** is optional 
 | `kotonoha github link pr --delta-id UUID --pr-number N` | Inserts `github_pull_request_links` (optional `head_sha` via `gh pr view`). |
 | `kotonoha github list-pr --pr-number N [--json]` | Lists correlated MeaningDelta rows. |
 | `kotonoha github pr-summary --pr-number N [--delta-id UUID] [--locale en\|ja]` | Markdown section for PR body (human-accountability banner). |
+
+### M5 — AgentRun gateway (≥ **0.2.6**, `kotonoha_core` ≥ **0.1.12**)
+
+Normative product outline: [`31_m5_agent_run_integration_spec_draft.md`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/31_m5_agent_run_integration_spec_draft.md) · MCP mapping: [`04_mcp_tools_and_ux.md`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/chatgpt-app/04_mcp_tools_and_ux.md).
+
+| Invocation | Behaviour |
+| --- | --- |
+| `kotonoha context export FILE [--path DIR] [--line-start N] [--line-end N] [--diff-ref REF] [--observation PATH] [--policy-ref URL]` | Builds **`kotonoha.context_pack.v0.1`** from current Git `HEAD` and **FILE** (same anchor rules as `delta create`). **Does not** require **`DATABASE_URL`**. Prints pretty JSON to stdout. Not a Git repo / invalid anchor → exit **1** / **2**. |
+| `kotonoha agent record start [--agent-kind KIND] [--external-ref REF] [--capability-profile PROFILE] [--parent-run-id UUID] [--payload PATH]` | Inserts **`agent_runs`** with `status = started` (default profile **`kotonoha-agent`**). Prints run UUID. Missing **`DATABASE_URL`** or M5 migration → exit **1** / **3**. |
+| `kotonoha agent record complete --run-id UUID [--output-artifacts PATH]` | Sets `status = completed`; optional JSON array for `output_artifact_refs`. |
+| `kotonoha agent delta create FILE --agent-run-id UUID …` | Same as `delta create` but sets **`meaning_deltas.agent_run_id`**. Unknown run → exit **2**. |
+| `kotonoha review approve\|hold\|reject … [--agent-run-id UUID]` | When **`--agent-run-id`** or env **`KOTONOHA_AGENT_RUN_ID`** is set, **deny-by-default** for agent channel (e.g. `review.approve`) → append **`denied_actions`**, bilingual message on stderr, exit **2** (no `review_decisions` row). Human path omits agent context. |
+
+Denied actions (informative): `review.*`, `git.push`, `git.commit`, `shell` — see spec §6.1.
 
 ### 4.1 Phase 3 — `kotonoha.console_event.v0` (ingest wrapper)
 

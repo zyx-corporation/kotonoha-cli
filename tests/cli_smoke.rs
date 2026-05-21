@@ -14,6 +14,59 @@ fn bare_invocation_prints_usage_and_succeeds() {
 }
 
 #[test]
+fn context_export_in_git_repo_emits_v01_format() {
+    if !git_available() {
+        return;
+    }
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .status()
+        .expect("git init");
+    std::fs::write(tmp.path().join("note.md"), "line\n").expect("write");
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["context", "export", "note.md"])
+        .current_dir(tmp.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("kotonoha.context_pack.v0.1"));
+}
+
+#[test]
+fn agent_help_lists_record_and_delta() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .args(["agent", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("record"))
+        .stdout(predicate::str::contains("delta"));
+}
+
+#[test]
+fn review_approve_with_agent_run_id_without_database_url_exits_1() {
+    Command::cargo_bin("kotonoha")
+        .unwrap()
+        .env_remove("DATABASE_URL")
+        .args([
+            "review",
+            "approve",
+            "--delta-id",
+            "00000000-0000-0000-0000-000000000001",
+            "--agent-run-id",
+            "00000000-0000-0000-0000-000000000002",
+            "--decided-by",
+            "smoke",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("DATABASE_URL"));
+}
+
+#[test]
 fn github_help_lists_link_subcommands() {
     Command::cargo_bin("kotonoha")
         .unwrap()
