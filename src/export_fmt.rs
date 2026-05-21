@@ -1,10 +1,13 @@
-//! M1/M2 export JSON builders (shared by `export` and `github pr-summary`).
+//! M1/M2/M6 export JSON builders (shared by `export` and `github pr-summary`).
 
 use kotonoha_core::store::postgres::{MeaningDeltaRow, RdeAssessmentRow, ReviewDecisionRow};
 use serde_json::Value;
+use uuid::Uuid;
 
 pub const M1_EXPORT_FORMAT: &str = "kotonoha.m1_export.v0.1";
 pub const M2_EXPORT_FORMAT: &str = "kotonoha.m2_export.v0.1";
+/// M6 project-scoped audit bundle ([#138](https://github.com/zyx-corporation/kotonoha-management/issues/138) M6-f).
+pub const M6_PROJECT_AUDIT_FORMAT: &str = "kotonoha.m6_project_audit_export.v0.1";
 
 pub fn m1_export_value(
     row: &MeaningDeltaRow,
@@ -100,4 +103,26 @@ pub fn build_summary_paragraph(
         assessments.len(),
         decision_part
     )
+}
+
+/// Project-scoped audit export bundle (M6-f).
+pub fn m6_project_audit_bundle(
+    project_id: Uuid,
+    acting_principal_id: Option<Uuid>,
+    git_commit: Option<&str>,
+    exports: Vec<Value>,
+) -> Value {
+    let generated_at_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    serde_json::json!({
+        "format": M6_PROJECT_AUDIT_FORMAT,
+        "generated_at_unix": generated_at_unix,
+        "project_id": project_id,
+        "acting_principal_id": acting_principal_id,
+        "git_commit": git_commit,
+        "export_count": exports.len(),
+        "exports": exports,
+    })
 }

@@ -93,7 +93,7 @@ enum Commands {
         #[command(subcommand)]
         action: agent_cmd::AgentAction,
     },
-    /// Export MeaningDelta + RDE + review decisions as JSON (M1/M2 audit report).
+    /// Export MeaningDelta + RDE + review decisions as JSON (M1/M2/M6 audit report).
     Export {
         /// Meaning delta UUID (`meaning_deltas.id`).
         #[arg(long, group = "target")]
@@ -101,7 +101,10 @@ enum Commands {
         /// Git commit hash (exports all deltas for that commit).
         #[arg(long, group = "target")]
         git_commit: Option<String>,
-        /// Export format: `m1` (default) or `m2` (RDE meta + observation hints).
+        /// M6 project scope (defaults to `KOTONOHA_PROJECT_ID`).
+        #[arg(long)]
+        project_id: Option<uuid::Uuid>,
+        /// Export format: `m1`, `m2`, or `m6` (project-scoped audit bundle).
         #[arg(long, default_value = "m1")]
         format: String,
         /// Write JSON to file instead of stdout.
@@ -117,6 +120,7 @@ const M2_EXPORT_BUNDLE_FORMAT: &str = "kotonoha.m2_export_bundle.v0.1";
 enum ExportFormat {
     M1,
     M2,
+    M6,
 }
 
 impl ExportFormat {
@@ -124,6 +128,7 @@ impl ExportFormat {
         match s.trim().to_lowercase().as_str() {
             "m1" | "kotonoha.m1_export.v0.1" => Some(ExportFormat::M1),
             "m2" | "kotonoha.m2_export.v0.1" => Some(ExportFormat::M2),
+            "m6" | "kotonoha.m6_project_audit_export.v0.1" | "audit" => Some(ExportFormat::M6),
             _ => None,
         }
     }
@@ -342,9 +347,19 @@ async fn main() {
         Some(Commands::Export {
             delta_id,
             git_commit,
+            project_id,
             format,
             out,
-        }) => cmd_export(delta_id, git_commit.as_deref(), &format, out.as_deref()).await,
+        }) => {
+            cmd_export(
+                delta_id,
+                git_commit.as_deref(),
+                project_id,
+                &format,
+                out.as_deref(),
+            )
+            .await
+        }
         Some(Commands::Github { action }) => github::run(github::GithubCli { action }).await,
         Some(Commands::Context { action }) => match action {
             ContextAction::Export(args) => context_cmd::run(&args),
@@ -557,13 +572,14 @@ fn resolve_decided_by(override_: Option<&str>) -> Result<String, i32> {
 async fn cmd_export(
     delta_id: Option<uuid::Uuid>,
     git_commit: Option<&str>,
+    project_id_arg: Option<uuid::Uuid>,
     format: &str,
     out_path: Option<&Path>,
 ) -> i32 {
     let export_format = match ExportFormat::parse(format) {
         Some(f) => f,
         None => {
-            eprintln!("export: unknown --format {format:?} (use m1 or m2)");
+            eprintln!("export: unknown --format {format:?} (use m1, m2, or m6)");
             return 1;
         }
     };
@@ -572,38 +588,74 @@ async fn cmd_export(
             eprintln!("export: specify only one of --delta-id or --git-commit");
             return 1;
         }
-        (None, None) => {
-            eprintln!("export: --delta-id or --git-commit is required");
+        (None, None) if export_format != ExportFormat::M6 => {
+            eprintln!("export: --delta-id or --git-commit is required (or use --format m6 with --project-id)");
             return 1;
         }
         _ => {}
+    }
+    let m6 = m6_context::M6EnvContext::from_env();
+    let project_id = project_id_arg.or(m6.project_id);
+    if export_format == ExportFormat::M6 && project_id.is_none() {
+        eprintln!("export: --format m6 requires --project-id or KOTONOHA_PROJECT_ID");
+        return 1;
     }
     let store = match pg_store().await {
         Ok(s) => s,
         Err(c) => return c,
     };
-    let json = match (delta_id, git_commit, export_format) {
-        (Some(id), None, ExportFormat::M1) => match build_m1_export(&store, id).await {
+    let json = match (delta_id, git_commit, export_format, project_id) {
+        (Some(id), None, ExportFormat::M1, _) => match build_m1_export(&store, id, None).await {
             Ok(v) => v,
             Err(c) => return c,
         },
-        (Some(id), None, ExportFormat::M2) => match build_m2_export(&store, id).await {
+        (Some(id), None, ExportFormat::M2, _) => match build_m2_export(&store, id, None).await {
             Ok(v) => v,
             Err(c) => return c,
         },
-        (None, Some(commit), ExportFormat::M1) => {
-            match build_m1_export_bundle(&store, commit).await {
+        (Some(id), None, ExportFormat::M6, Some(pid)) => {
+            match build_m6_project_audit_export(&store, pid, m6.principal_id, Some(id), None).await
+            {
                 Ok(v) => v,
                 Err(c) => return c,
             }
         }
-        (None, Some(commit), ExportFormat::M2) => {
-            match build_m2_export_bundle(&store, commit).await {
+        (None, Some(commit), ExportFormat::M1, pid) => {
+            match build_m1_export_bundle(&store, commit, pid).await {
                 Ok(v) => v,
                 Err(c) => return c,
             }
         }
-        _ => unreachable!(),
+        (None, Some(commit), ExportFormat::M2, pid) => {
+            match build_m2_export_bundle(&store, commit, pid).await {
+                Ok(v) => v,
+                Err(c) => return c,
+            }
+        }
+        (None, Some(commit), ExportFormat::M6, Some(pid)) => {
+            match build_m6_project_audit_export(
+                &store,
+                pid,
+                m6.principal_id,
+                None,
+                Some(commit),
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(c) => return c,
+            }
+        }
+        (None, None, ExportFormat::M6, Some(pid)) => {
+            match build_m6_project_audit_export(&store, pid, m6.principal_id, None, None).await {
+                Ok(v) => v,
+                Err(c) => return c,
+            }
+        }
+        _ => {
+            eprintln!("export: invalid combination of --delta-id, --git-commit, --format, --project-id");
+            return 1;
+        }
     };
     let pretty = match serde_json::to_string_pretty(&json) {
         Ok(s) => s,
@@ -626,25 +678,76 @@ async fn cmd_export(
 async fn build_m1_export(
     store: &kotonoha_core::store::postgres::PgStore,
     delta_id: uuid::Uuid,
+    project_id: Option<uuid::Uuid>,
 ) -> Result<Value, i32> {
-    let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
+    let (row, assessments, decisions) = fetch_export_parts(store, delta_id, project_id).await?;
     Ok(export_fmt::m1_export_value(&row, &assessments, &decisions))
 }
 
 async fn build_m2_export(
     store: &kotonoha_core::store::postgres::PgStore,
     delta_id: uuid::Uuid,
+    project_id: Option<uuid::Uuid>,
 ) -> Result<Value, i32> {
-    let (row, assessments, decisions) = fetch_export_parts(store, delta_id).await?;
+    let (row, assessments, decisions) = fetch_export_parts(store, delta_id, project_id).await?;
     Ok(export_fmt::m2_export_value(&row, &assessments, &decisions))
+}
+
+async fn build_m6_project_audit_export(
+    store: &kotonoha_core::store::postgres::PgStore,
+    project_id: uuid::Uuid,
+    acting_principal_id: Option<uuid::Uuid>,
+    delta_id: Option<uuid::Uuid>,
+    git_commit: Option<&str>,
+) -> Result<Value, i32> {
+    use kotonoha_core::store::principals::OperationContext;
+
+    let ctx = OperationContext::resolve(acting_principal_id, Some(project_id));
+    let deltas = if let Some(id) = delta_id {
+        let row = fetch_export_parts(store, id, Some(project_id)).await?.0;
+        vec![row]
+    } else {
+        store
+            .list_meaning_deltas_for_audit_export(&ctx, git_commit)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?
+    };
+    let mut exports = Vec::with_capacity(deltas.len());
+    for row in &deltas {
+        let assessments = store
+            .list_rde_assessments_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        let decisions = store
+            .list_review_decisions_for_meaning_delta(row.id)
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                store_error_code(&e)
+            })?;
+        exports.push(export_fmt::m2_export_value(row, &assessments, &decisions));
+    }
+    Ok(export_fmt::m6_project_audit_bundle(
+        project_id,
+        acting_principal_id,
+        git_commit,
+        exports,
+    ))
 }
 
 async fn build_m2_export_bundle(
     store: &kotonoha_core::store::postgres::PgStore,
     git_commit: &str,
+    project_id: Option<uuid::Uuid>,
 ) -> Result<Value, i32> {
     let deltas = store
-        .list_meaning_deltas_by_git_commit(git_commit)
+        .list_meaning_deltas_by_git_commit(git_commit, project_id)
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -675,9 +778,27 @@ async fn build_m2_export_bundle(
     }))
 }
 
+fn assert_delta_in_project(
+    row: &kotonoha_core::store::postgres::MeaningDeltaRow,
+    project_id: uuid::Uuid,
+) -> Result<(), i32> {
+    match row.project_id {
+        Some(pid) if pid == project_id => Ok(()),
+        Some(pid) => {
+            eprintln!("export: meaning delta {id} belongs to project {pid}, not {project_id}", id = row.id);
+            Err(2)
+        }
+        None => {
+            eprintln!("export: meaning delta {} has no project_id", row.id);
+            Err(2)
+        }
+    }
+}
+
 async fn fetch_export_parts(
     store: &kotonoha_core::store::postgres::PgStore,
     delta_id: uuid::Uuid,
+    project_id: Option<uuid::Uuid>,
 ) -> Result<
     (
         kotonoha_core::store::postgres::MeaningDeltaRow,
@@ -702,6 +823,9 @@ async fn fetch_export_parts(
             return Err(store_error_code(&e));
         }
     };
+    if let Some(pid) = project_id {
+        assert_delta_in_project(&row, pid)?;
+    }
     let assessments = store
         .list_rde_assessments_for_meaning_delta(delta_id)
         .await
@@ -722,9 +846,10 @@ async fn fetch_export_parts(
 async fn build_m1_export_bundle(
     store: &kotonoha_core::store::postgres::PgStore,
     git_commit: &str,
+    project_id: Option<uuid::Uuid>,
 ) -> Result<Value, i32> {
     let deltas = store
-        .list_meaning_deltas_by_git_commit(git_commit)
+        .list_meaning_deltas_by_git_commit(git_commit, project_id)
         .await
         .map_err(|e| {
             eprintln!("{}", e);
