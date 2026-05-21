@@ -3,7 +3,9 @@
 //! Requires `DATABASE_URL` and `git`. Skips when `DATABASE_URL` is unset.
 
 use assert_cmd::Command;
+use kotonoha_core::store::postgres::PgStore;
 use predicates::prelude::*;
+use uuid::Uuid;
 
 fn database_url() -> Option<String> {
     std::env::var("DATABASE_URL").ok()
@@ -131,4 +133,108 @@ fn m5_agent_review_approve_denied_with_agent_run_id() {
         ])
         .assert()
         .success();
+}
+
+fn denied_actions_contain(run_id: Uuid, action: &str, database_url: &str) {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    rt.block_on(async {
+        let store = PgStore::connect(database_url).await.expect("connect");
+        let run = store
+            .get_agent_run(run_id)
+            .await
+            .expect("query")
+            .expect("run row");
+        let arr = run.denied_actions.as_array().expect("denied_actions array");
+        assert!(
+            arr.iter().any(|e| e.get("action").and_then(|v| v.as_str()) == Some(action)),
+            "expected denied_actions to contain {action:?}, got {arr:?}"
+        );
+    });
+}
+
+#[test]
+fn m5_agent_capability_check_denies_git_and_shell() {
+    let Some(database_url) = database_url() else {
+        eprintln!("skip m5_integration: DATABASE_URL not set");
+        return;
+    };
+
+    let run_out = kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args(["db", "migrate"])
+        .assert()
+        .success();
+    let _ = run_out;
+
+    let run_out = kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args(["agent", "record", "start", "--agent-kind", "m5-cap-check"])
+        .assert()
+        .success();
+    let run_id = Uuid::parse_str(
+        std::str::from_utf8(run_out.get_output().stdout.as_slice())
+            .expect("utf8")
+            .trim(),
+    )
+    .expect("uuid");
+
+    for action in ["git.push", "git.commit", "shell"] {
+        kotonoha_cmd()
+            .env("DATABASE_URL", &database_url)
+            .args([
+                "agent",
+                "capability",
+                "check",
+                "--action",
+                action,
+                "--agent-run-id",
+                &run_id.to_string(),
+            ])
+            .assert()
+            .failure()
+            .code(2)
+            .stderr(predicate::str::contains("denied_actions"))
+            .stderr(predicate::str::contains(action));
+        denied_actions_contain(run_id, action, &database_url);
+    }
+}
+
+#[test]
+fn m5_agent_capability_check_allows_readonly_action() {
+    let Some(database_url) = database_url() else {
+        eprintln!("skip m5_integration: DATABASE_URL not set");
+        return;
+    };
+
+    kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args(["db", "migrate"])
+        .assert()
+        .success();
+
+    let run_out = kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args(["agent", "record", "start", "--agent-kind", "m5-cap-allow"])
+        .assert()
+        .success();
+    let run_id = run_out.get_output().stdout.clone();
+
+    kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args([
+            "agent",
+            "capability",
+            "check",
+            "--action",
+            "context.export",
+            "--agent-run-id",
+            std::str::from_utf8(run_id.as_slice()).unwrap().trim(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("kotonoha.agent_capability_check.v0.1"))
+        .stdout(predicate::str::contains("\"allowed\": true"));
 }

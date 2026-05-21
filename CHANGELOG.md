@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **M5-e** ([#115](https://github.com/zyx-corporation/kotonoha-management/issues/115)): [`scripts/m5_agent_run_demo.sh`](scripts/m5_agent_run_demo.sh), [`docs/ui-design-review-m5.md`](docs/ui-design-review-m5.md), [`docs/m5_llm_pattern_a_convergence.md`](docs/m5_llm_pattern_a_convergence.md).
 
+## [0.2.7] — 2026-05-21
+
+### Added
+
+- **M5-P1b-1** ([#28](https://github.com/zyx-corporation/kotonoha-cli/issues/28)): `kotonoha agent capability check --action ACTION --agent-run-id UUID` — deny `git.push` / `git.commit` / `shell` / `review.*` with `denied_actions` (exit **2**); allowed actions emit `kotonoha.agent_capability_check.v0.1` JSON.
+- [`tests/m5_integration.rs`](tests/m5_integration.rs) — capability check integration + `denied_actions` JSON assert ([#133](https://github.com/zyx-corporation/kotonoha-management/issues/133)).
+
 ## [0.2.6] — 2026-05-21
 
 ### Added

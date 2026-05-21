@@ -117,6 +117,7 @@ Normative product outline: [`31_m5_agent_run_integration_spec_draft.md`](https:/
 | `kotonoha agent record start [--agent-kind KIND] [--external-ref REF] [--capability-profile PROFILE] [--parent-run-id UUID] [--payload PATH]` | Inserts **`agent_runs`** with `status = started` (default profile **`kotonoha-agent`**). Prints run UUID. Missing **`DATABASE_URL`** or M5 migration → exit **1** / **3**. |
 | `kotonoha agent record complete --run-id UUID [--output-artifacts PATH]` | Sets `status = completed`; optional JSON array for `output_artifact_refs`. |
 | `kotonoha agent delta create FILE --agent-run-id UUID …` | Same as `delta create` but sets **`meaning_deltas.agent_run_id`**. Unknown run → exit **2**. |
+| `kotonoha agent capability check --action ACTION --agent-run-id UUID` | Probes agent-channel policy for **`ACTION`**. Denied actions (`review.*`, `git.push`, `git.commit`, `shell`) → append **`denied_actions`**, bilingual stderr, exit **2**. Allowed → stdout **`kotonoha.agent_capability_check.v0.1`** JSON, exit **0**. Unknown run → exit **2**; missing **`DATABASE_URL`** → exit **1** / **3**. |
 | `kotonoha review approve\|hold\|reject … [--agent-run-id UUID]` | When **`--agent-run-id`** or env **`KOTONOHA_AGENT_RUN_ID`** is set, **deny-by-default** for agent channel (e.g. `review.approve`) → append **`denied_actions`**, bilingual message on stderr, exit **2** (no `review_decisions` row). Human path omits agent context. |
 
 Denied actions (informative): `review.*`, `git.push`, `git.commit`, `shell` — see spec §6.1.
