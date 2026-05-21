@@ -744,7 +744,7 @@ dependencies = [
 [[package]]
 name = "kotonoha_core"
 version = "0.1.12"
-source = "git+https://github.com/zyx-corporation/kotonoha-core.git?rev=fc88680f2c2c71204c4e203966bfd7e7ba5a46f4#fc88680f2c2c71204c4e203966bfd7e7ba5a46f4"
+source = "git+https://github.com/zyx-corporation/kotonoha-core.git?rev=761555b3280580056d951e5e566206a5b398f015#761555b3280580056d951e5e566206a5b398f015"
 dependencies = [
  "serde",
  "serde_json",
