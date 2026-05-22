@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **SLS-9 / Phase 2:** CLI tests for `source_context_status` via `rde validate` and `interchange validate` ([#30](https://github.com/zyx-corporation/kotonoha-cli/issues/30)); depends on `kotonoha_core` revision with closed-vocabulary validation.
+
+### Documentation
+
+- [`docs/cli-definition.md`](docs/cli-definition.md): SLS-9 validation profile and phase/milestone cross-links ([#31](https://github.com/zyx-corporation/kotonoha-cli/issues/31)).
+
 ## [0.2.9] — 2026-05-21
 
 ### Added
