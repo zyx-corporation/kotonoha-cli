@@ -13,12 +13,12 @@ Behaviour that implements SLS semantics **MUST** remain traceable to [`kotonoha-
 
 ## 2. Scope (Phase 2 minimum)
 
-For organizational **Phase 2** (see internal phase plan in project governance), the CLI definition **MUST** cover at least:
+For organizational **Phase 2** (see [`kotonoha-spec` SLS-9](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/phase2-interchange-hardening.md) and informative [phase/milestone definitions](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/phase-and-milestone-definition.md)), the CLI definition **MUST** cover at least:
 
 | Area | Requirement |
 | --- | --- |
 | **Identity** | `kotonoha --version` (or equivalent) reports the CLI build identity and **SHOULD** report the [`kotonoha-spec`](https://github.com/zyx-corporation/kotonoha-spec) bundle version the build targets (when known). |
-| **RDE interchange** | Commands **MUST** exist to **validate** and/or **emit** JSON aligned with `docs/rde-review-output.md` in `kotonoha-spec` (`spec_version` **0.1** minimum). Exact subcommand names **MAY** evolve; see §4. |
+| **RDE interchange** | Commands **MUST** exist to **validate** and/or **emit** JSON aligned with `docs/rde-review-output.md` in `kotonoha-spec` (`spec_version` **0.1** minimum). **SLS-9:** `rde validate` and nested `interchange validate` **MUST** reject unknown or non-string `source_context_status` (delegated to `kotonoha-core`). Exact subcommand names **MAY** evolve; see §4. |
 | **Traceability** | Documentation in this repository **MUST** map commands and flags to specification sections (see §6). |
 
 From **release 0.2.0**, the CLI **MAY** additionally expose **Phase 3** ingest paths documented in §4.1 (console-equivalent JSON **without** changing `kotonoha-spec` normative prose).
