@@ -31,6 +31,16 @@ Normative technical contracts for interchange and lineage remain in [`kotonoha-s
 
 Unless otherwise stated in a specific file, repository content is licensed under the [Apache License 2.0](LICENSE).
 
+## Install (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zyx-corporation/kotonoha-cli/main/scripts/install.sh | bash
+export PATH="$HOME/.local/bin:$PATH"
+kotonoha version
+```
+
+Tutorial: [kotonoha-docs — Install the Kotonoha CLI](https://github.com/zyx-corporation/kotonoha-docs/blob/main/en/tutorials/install_kotonoha_cli.md). Maintainer notes: [cli_installer_implementation.md](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md).
+
 ## Quickstart (build from source)
 
 Requires [Rust](https://www.rust-lang.org/tools/install) (stable, MSRV in `Cargo.toml`).
