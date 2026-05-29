@@ -24,7 +24,7 @@ export PATH="$HOME/.local/bin:$PATH"
 kotonoha version
 ```
 
-バージョン指定・インストール先の変更・メンテナ向け手順は [`scripts/install.sh`](scripts/install.sh) と [実装手順書](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md) を参照してください。
+バージョン指定・インストール先の変更・メンテナ向け手順は [`scripts/install.sh`](scripts/install.sh)、[RELEASING.md](RELEASING.md)、[実装手順書](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md) を参照してください。バイナリは Git に含めず、タグ push 時に CI が GitHub Releases へ公開します。
 
 ## ビルド（ソースから）
 

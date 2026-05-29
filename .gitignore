@@ -8,6 +8,9 @@
 /target/
 /dist/
 /build/
+# Release tarballs (built in CI or via scripts/package-release.sh — never commit)
+*.tar.gz
+SHA256SUMS
 *.exe
 *.dll
 *.so
