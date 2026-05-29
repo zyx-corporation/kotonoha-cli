@@ -70,7 +70,7 @@ Subcommand groups:
 | Invocation | Behaviour |
 | --- | --- |
 | `kotonoha init [--project-id ID] [--path DIR]` | Requires **DIR** (default `.`) to be inside a **Git** repository. Writes **`.kotonoha/config.toml`** with `project_id` (default: directory basename). Not a Git repo → exit **1**. I/O failure → exit **3**. Success → exit **0**. |
-| `kotonoha status [--path DIR]` | Prints repository root, branch or detached HEAD, `commit`, working tree clean/dirty counts, whether `.kotonoha/config.toml` exists, and if **`DATABASE_URL`** is set whether M1 tables exist and `meaning_deltas` row count. Not a Git repo → exit **1**. Success → exit **0**. |
+| `kotonoha status [--path DIR]` | Prints repository root, branch or detached HEAD, `commit`, working tree clean/dirty counts, whether `.kotonoha/config.toml` exists, **`kotonoha project_id`** from config, **`principal_id (env)`** / **`project_id (env)`** from M6 env (≥ **0.3.1**), and if **`DATABASE_URL`** is set whether M1 tables exist and `meaning_deltas` row count. When env and config `project_id` differ, prints a note. Not a Git repo → exit **1**. Success → exit **0**. |
 | `kotonoha diff [--path DIR] [--file PATH]` | Prints unified **unstaged** diff via `kotonoha_core::git` (optional single-file scope). Empty diff prints `(no unstaged diff)`. Exit codes same family as §4 (Git/IO → **1** / **3**). |
 
 ### M1 — MeaningDelta and RDE attach (≥ **0.2.2**, `kotonoha_core` ≥ **0.1.7**)
@@ -197,6 +197,8 @@ The CLI **delegates** RDE validation and **interchange envelope** validation to 
 | RDE attach (`rde attach`) | [`docs/rde-review-output.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/rde-review-output.md); table **`rde_assessments`** in M1 schema |
 | Review (`review approve\|hold\|reject`) | [`docs/semantic-lineage-model.md`](https://github.com/zyx-corporation/kotonoha-spec/blob/main/docs/semantic-lineage-model.md); table **`review_decisions`** |
 | Export (`export`) | M1 audit bundle (informative JSON); aggregates rows above |
+| M6 export (`export --format m6`) | *(not normative)* — project-scoped bundle **`kotonoha.m6_project_audit_export.v0.1`**; RBAC via `kotonoha-core` M6; integration profile [`m7-console-export-integration.md`](m7-console-export-integration.md) |
+| M7 Team Mode UI | *(product)* — Console [#143](https://github.com/zyx-corporation/kotonoha-management/issues/143) consumes **`export --format m6`**; VS Code [#144](https://github.com/zyx-corporation/kotonoha-management/issues/144) sets `KOTONOHA_PRINCIPAL_ID` / `KOTONOHA_PROJECT_ID`; spec draft [`37`](https://github.com/zyx-corporation/kotonoha-management/blob/main/docs/37_m7_team_mode_ui_spec_draft.md) |
 
 This table **MUST** be updated when new commands tie to additional specification sections.
 
@@ -224,3 +226,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-20 | **M1** `delta create`, `rde attach` (**≥ 0.2.2**); §6 matrix rows for MeaningDelta / RDE assessment. |
 | 2026-05-20 | **M1** `review`, `export` (**≥ 0.2.3**); closes CLI track for management#97 M1-f. |
 | 2026-05-22 | **M2** `rde attach --source-kind`, `export --format m2` (**≥ 0.2.4**); depends on core **0.1.9**. |
+| 2026-05-29 | **M7** integration profile [`m7-console-export-integration.md`](m7-console-export-integration.md); **`status`** M6 env lines (**≥ 0.3.1**). |

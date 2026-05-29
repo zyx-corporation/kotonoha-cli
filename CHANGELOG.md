@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-05-29
+
+### Added
+
+- **M7-CLI** ([#37](https://github.com/zyx-corporation/kotonoha-cli/issues/37)): [`docs/m7-console-export-integration.md`](docs/m7-console-export-integration.md) — Web Console profile for `export --format m6` ([#38](https://github.com/zyx-corporation/kotonoha-cli/issues/38)).
+- **`kotonoha status`**: prints `KOTONOHA_PRINCIPAL_ID` / `KOTONOHA_PROJECT_ID` env context ([#39](https://github.com/zyx-corporation/kotonoha-cli/issues/39)).
+- [`scripts/m7_export_smoke.sh`](scripts/m7_export_smoke.sh) — M7 export isolation gate ([#40](https://github.com/zyx-corporation/kotonoha-cli/issues/40)).
+
+### Fixed
+
+- **Project config** ([#48](https://github.com/zyx-corporation/kotonoha-cli/pull/48)): distinguish missing vs invalid `project_id` in `.kotonoha/config.toml`.
+
+### Documentation
+
+- [`docs/cli-definition.md`](docs/cli-definition.md): M7 traceability rows ([#41](https://github.com/zyx-corporation/kotonoha-cli/issues/41)).
+
 ## [0.3.0] — 2026-05-29
 
 First **GitHub Release with prebuilt binaries** (linux-amd64, macos-arm64). Bundles M5/M6 CLI capabilities shipped in 0.2.4–0.2.9 plus installer and release automation.
