@@ -14,6 +14,18 @@
 
 **Phase 2 MVP（本リポジトリの射程）:** `cli-definition.md` §2〜§4 に書かれた挙動（RDE・`kotonoha.interchange.v1`・任意の Postgres）。Phase 3 の追加要件は [docs/cli-requirements.md](docs/cli-requirements.md) にあり、ベースライン契約とは別です。
 
+## インストール（推奨）
+
+ターミナルで次を実行します（詳細は [kotonoha-docs: CLI のインストール](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/tutorials/install_kotonoha_cli.md)）。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zyx-corporation/kotonoha-cli/main/scripts/install.sh | bash
+export PATH="$HOME/.local/bin:$PATH"
+kotonoha version
+```
+
+バージョン指定・インストール先の変更・メンテナ向け手順は [`scripts/install.sh`](scripts/install.sh) と [実装手順書](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md) を参照してください。
+
 ## ビルド（ソースから）
 
 [Rust](https://www.rust-lang.org/tools/install) が必要です。
