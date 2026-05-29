@@ -8,22 +8,25 @@ const CONFIG_FILE: &str = "config.toml";
 #[derive(Debug, Clone)]
 pub struct ProjectConfig {
     pub project_id: String,
-    pub path: PathBuf,
 }
 
 #[derive(Debug)]
 pub enum ProjectError {
     Io(std::io::Error),
-    Parse(String),
     MissingProjectId,
+    InvalidProjectId,
 }
 
 impl std::fmt::Display for ProjectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ProjectError::Io(e) => write!(f, "{e}"),
-            ProjectError::Parse(s) => write!(f, "{s}"),
-            ProjectError::MissingProjectId => f.write_str("config missing project_id"),
+            ProjectError::MissingProjectId => {
+                f.write_str("config missing project_id (run `kotonoha init`)")
+            }
+            ProjectError::InvalidProjectId => {
+                f.write_str("config has project_id key but value is empty or malformed")
+            }
         }
     }
 }
@@ -48,10 +51,7 @@ pub fn init_config(
         escape_toml_string(&id)
     );
     std::fs::write(config_path(repo_root), body).map_err(ProjectError::Io)?;
-    Ok(ProjectConfig {
-        project_id: id,
-        path: repo_root.to_path_buf(),
-    })
+    Ok(ProjectConfig { project_id: id })
 }
 
 pub fn load_config(repo_root: &Path) -> Result<Option<ProjectConfig>, ProjectError> {
@@ -60,11 +60,21 @@ pub fn load_config(repo_root: &Path) -> Result<Option<ProjectConfig>, ProjectErr
         return Ok(None);
     }
     let text = std::fs::read_to_string(&path).map_err(ProjectError::Io)?;
-    let id = parse_project_id(&text).ok_or(ProjectError::MissingProjectId)?;
-    Ok(Some(ProjectConfig {
-        project_id: id,
-        path: repo_root.to_path_buf(),
-    }))
+    let id = match parse_project_id(&text) {
+        Some(id) => id,
+        None if text.lines().any(|l| {
+            l.split('#')
+                .next()
+                .unwrap_or(l)
+                .trim()
+                .starts_with("project_id")
+        }) =>
+        {
+            return Err(ProjectError::InvalidProjectId);
+        }
+        None => return Err(ProjectError::MissingProjectId),
+    };
+    Ok(Some(ProjectConfig { project_id: id }))
 }
 
 fn default_project_id(repo_root: &Path) -> String {
@@ -105,5 +115,15 @@ mod tests {
 project_id = "my-repo"
 "#;
         assert_eq!(parse_project_id(t).as_deref(), Some("my-repo"));
+    }
+
+    #[test]
+    fn load_config_rejects_malformed_project_id() {
+        let td = tempfile::tempdir().unwrap();
+        let root = td.path();
+        std::fs::create_dir_all(root.join(".kotonoha")).unwrap();
+        std::fs::write(config_path(root), "project_id = \n").unwrap();
+        let err = load_config(root).unwrap_err();
+        assert!(matches!(err, ProjectError::InvalidProjectId));
     }
 }
