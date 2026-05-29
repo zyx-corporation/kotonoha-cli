@@ -633,14 +633,8 @@ async fn cmd_export(
             }
         }
         (None, Some(commit), ExportFormat::M6, Some(pid)) => {
-            match build_m6_project_audit_export(
-                &store,
-                pid,
-                m6.principal_id,
-                None,
-                Some(commit),
-            )
-            .await
+            match build_m6_project_audit_export(&store, pid, m6.principal_id, None, Some(commit))
+                .await
             {
                 Ok(v) => v,
                 Err(c) => return c,
@@ -653,7 +647,9 @@ async fn cmd_export(
             }
         }
         _ => {
-            eprintln!("export: invalid combination of --delta-id, --git-commit, --format, --project-id");
+            eprintln!(
+                "export: invalid combination of --delta-id, --git-commit, --format, --project-id"
+            );
             return 1;
         }
     };
@@ -785,7 +781,10 @@ fn assert_delta_in_project(
     match row.project_id {
         Some(pid) if pid == project_id => Ok(()),
         Some(pid) => {
-            eprintln!("export: meaning delta {id} belongs to project {pid}, not {project_id}", id = row.id);
+            eprintln!(
+                "export: meaning delta {id} belongs to project {pid}, not {project_id}",
+                id = row.id
+            );
             Err(2)
         }
         None => {

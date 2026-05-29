@@ -2,7 +2,11 @@
 //!
 //! Requires `DATABASE_URL` and `git` (same as CI). Skips when `DATABASE_URL` is unset.
 
+mod common;
+
 use assert_cmd::Command;
+use common::rbac::set_legacy_member_role;
+use kotonoha_core::store::principals::LegacyDefaults;
 use serde_json::Value;
 
 const M2_EXPORT_FORMAT: &str = "kotonoha.m2_export.v0.1";
@@ -71,8 +75,18 @@ fn m2_export_contract_after_attach_with_source_kind() {
         .assert()
         .success();
 
+    set_legacy_member_role(&database_url, "agent_runner");
+
     let delta_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args([
             "delta",
             "create",
@@ -94,6 +108,14 @@ fn m2_export_contract_after_attach_with_source_kind() {
 
     kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args([
             "rde",
             "attach",
@@ -108,6 +130,14 @@ fn m2_export_contract_after_attach_with_source_kind() {
 
     let export_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args(["export", "--delta-id", &delta_id, "--format", "m2"])
         .assert()
         .success();

@@ -50,7 +50,10 @@ fn init_git_repo(dir: &std::path::Path) -> String {
         .current_dir(dir)
         .output()
         .expect("rev-parse");
-    String::from_utf8(out.stdout).expect("utf8").trim().to_string()
+    String::from_utf8(out.stdout)
+        .expect("utf8")
+        .trim()
+        .to_string()
 }
 
 #[test]
@@ -169,8 +172,7 @@ fn m6_export_isolates_two_projects_on_same_commit() {
         .current_dir(tmp.path())
         .assert()
         .success();
-    let json_b: Value =
-        serde_json::from_slice(&export_b.get_output().stdout).expect("json b");
+    let json_b: Value = serde_json::from_slice(&export_b.get_output().stdout).expect("json b");
     assert_eq!(
         json_b.get("format").and_then(|v| v.as_str()),
         Some("kotonoha.m6_project_audit_export.v0.1")

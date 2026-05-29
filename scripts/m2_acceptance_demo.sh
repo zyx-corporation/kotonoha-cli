@@ -25,7 +25,11 @@ fi
 
 echo "== M2 acceptance demo (binary: $KO) =="
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 "$KO" db migrate
+# shellcheck source=m6_legacy_rbac.sh
+source "$SCRIPT_DIR/m6_legacy_rbac.sh" agent_runner
 
 DEMO_FILE="${M2_DEMO_FILE:-docs/m2_demo_scratch.md}"
 mkdir -p "$(dirname "$DEMO_FILE")"
@@ -40,6 +44,8 @@ echo "meaning_delta_id: $DELTA"
 ASSESSMENT=$("$KO" rde emit | "$KO" rde attach --delta-id "$DELTA" --source-kind cli)
 echo "rde_assessment_id: $ASSESSMENT"
 
+# shellcheck source=m6_legacy_rbac.sh
+source "$SCRIPT_DIR/m6_legacy_rbac.sh" reviewer
 DECISION=$("$KO" review approve --delta-id "$DELTA" --assessment-id "$ASSESSMENT" --decided-by "m2-demo")
 echo "review_decision_id: $DECISION"
 

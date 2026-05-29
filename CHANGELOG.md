@@ -6,13 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-05-29
+
+First **GitHub Release with prebuilt binaries** (linux-amd64, macos-arm64). Bundles M5/M6 CLI capabilities shipped in 0.2.4–0.2.9 plus installer and release automation.
+
 ### Added
 
-- **SLS-9 / Phase 2:** CLI tests for `source_context_status` via `rde validate` and `interchange validate` ([#30](https://github.com/zyx-corporation/kotonoha-cli/issues/30)); depends on `kotonoha_core` revision with closed-vocabulary validation.
+- **`scripts/install.sh`** — `curl | bash` installer; binary download from GitHub Releases with cargo fallback ([#34](https://github.com/zyx-corporation/kotonoha-cli/issues/34)).
+- **Release CI** — tag `v*` triggers build matrix, `SHA256SUMS`, and single GitHub Release publish ([#36](https://github.com/zyx-corporation/kotonoha-cli/issues/36)); [`RELEASING.md`](RELEASING.md), [`scripts/package-release.sh`](scripts/package-release.sh), [`scripts/check-release-tag.sh`](scripts/check-release-tag.sh).
+- **SLS-9 / Phase 2:** CLI tests for `source_context_status` via `rde validate` and `interchange validate` ([#30](https://github.com/zyx-corporation/kotonoha-cli/issues/30)).
 
 ### Documentation
 
 - [`docs/cli-definition.md`](docs/cli-definition.md): SLS-9 validation profile and phase/milestone cross-links ([#31](https://github.com/zyx-corporation/kotonoha-cli/issues/31)).
+
+### Notes
+
+- M5/M6 command surface (`agent`, `context export`, principal/project env, `export --format m6`) was introduced in **0.2.4–0.2.9**; see those sections below. **0.3.0** is the recommended install target for new users via `install.sh`.
 
 ## [0.2.9] — 2026-05-21
 
