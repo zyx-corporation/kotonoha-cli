@@ -39,7 +39,7 @@ export PATH="$HOME/.local/bin:$PATH"
 kotonoha version
 ```
 
-Tutorial: [kotonoha-docs — Install the Kotonoha CLI](https://github.com/zyx-corporation/kotonoha-docs/blob/main/en/tutorials/install_kotonoha_cli.md). Maintainer notes: [cli_installer_implementation.md](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md).
+Tutorial: [kotonoha-docs — Install the Kotonoha CLI](https://github.com/zyx-corporation/kotonoha-docs/blob/main/en/tutorials/install_kotonoha_cli.md). **Releasing (binaries are CI-only, not in git):** [RELEASING.md](RELEASING.md). Maintainer notes: [cli_installer_implementation.md](https://github.com/zyx-corporation/kotonoha-docs/blob/main/ja/manual/cli_installer_implementation.md).
 
 ## Quickstart (build from source)
 

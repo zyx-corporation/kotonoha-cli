@@ -1,16 +1,41 @@
+# Build release tarballs on version tags. Binaries are NOT committed to git.
+# Assets: kotonoha-<tag>-<platform>.tar.gz + SHA256SUMS (GitHub Releases only).
+
 name: Release
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to validate (e.g. v0.2.9); build uses ref checkout'
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  validate:
+    name: validate tag vs Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+      - name: Verify tag matches package version
+        env:
+          REF_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: bash scripts/check-release-tag.sh "${REF_TAG}"
+
   build:
     name: build (${{ matrix.asset }})
+    needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -24,6 +49,8 @@ jobs:
             asset: macos-arm64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -33,16 +60,63 @@ jobs:
         run: cargo build --release --locked --target "${{ matrix.target }}"
 
       - name: Package tarball
+        env:
+          REF_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          tag="${GITHUB_REF_NAME}"
-          staging="dist/${tag}"
-          mkdir -p "${staging}"
-          cp "target/${{ matrix.target }}/release/kotonoha" "${staging}/kotonoha"
-          chmod +x "${staging}/kotonoha"
-          tar -czf "kotonoha-${tag}-${{ matrix.asset }}.tar.gz" -C "${staging}" kotonoha
+          bash scripts/package-release.sh "${REF_TAG}" "${{ matrix.asset }}" \
+            "target/${{ matrix.target }}/release/kotonoha"
 
-      - name: Upload release asset
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.asset }}
+          path: kotonoha-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}-${{ matrix.asset }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all platform tarballs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: List assets
+        run: find dist -type f -name '*.tar.gz' | sort
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd dist
+          shopt -s nullglob
+          files=(kotonoha-*.tar.gz)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "no tarballs found" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Smoke-test linux-amd64 binary
+        run: |
+          cd dist
+          tarball="$(ls kotonoha-*-linux-amd64.tar.gz | head -1)"
+          tar -xzf "${tarball}"
+          ./kotonoha version
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: kotonoha-${{ github.ref_name }}-${{ matrix.asset }}.tar.gz
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           generate_release_notes: true
+          files: |
+            dist/kotonoha-*.tar.gz
+            dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
