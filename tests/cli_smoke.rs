@@ -232,7 +232,9 @@ fn status_succeeds_in_git_repo() {
         .arg("status")
         .assert()
         .success()
-        .stdout(predicate::str::contains("commit:"));
+        .stdout(predicate::str::contains("commit:"))
+        .stdout(predicate::str::contains("principal_id (env):"))
+        .stdout(predicate::str::contains("project_id (env):"));
 }
 
 #[test]

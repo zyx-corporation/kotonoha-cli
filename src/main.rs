@@ -1041,6 +1041,22 @@ async fn cmd_status(path: &Path) -> i32 {
         None => println!("kotonoha: not initialized (run `kotonoha init`)"),
     }
 
+    let m6 = m6_context::M6EnvContext::from_env();
+    match m6.principal_id {
+        Some(id) => println!("principal_id (env): {id}"),
+        None => println!("principal_id (env): not set"),
+    }
+    match (m6.project_id, cfg.as_ref().map(|c| c.project_id.as_str())) {
+        (Some(env_pid), Some(cfg_pid)) if env_pid.to_string() != cfg_pid => {
+            println!(
+                "project_id (env): {env_pid} (note: differs from .kotonoha/config.toml {cfg_pid})"
+            );
+        }
+        (Some(env_pid), _) => println!("project_id (env): {env_pid}"),
+        (None, Some(cfg_pid)) => println!("project_id (env): not set (config.toml: {cfg_pid})"),
+        (None, None) => println!("project_id (env): not set"),
+    }
+
     match std::env::var("DATABASE_URL") {
         Ok(_) => {
             if let Some(db) = db_status_summary().await {
