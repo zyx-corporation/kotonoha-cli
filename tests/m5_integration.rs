@@ -2,8 +2,12 @@
 //!
 //! Requires `DATABASE_URL` and `git`. Skips when `DATABASE_URL` is unset.
 
+mod common;
+
 use assert_cmd::Command;
+use common::rbac::set_legacy_member_role;
 use kotonoha_core::store::postgres::PgStore;
+use kotonoha_core::store::principals::LegacyDefaults;
 use predicates::prelude::*;
 use uuid::Uuid;
 
@@ -67,8 +71,18 @@ fn m5_agent_review_approve_denied_with_agent_run_id() {
         .assert()
         .success();
 
+    set_legacy_member_role(&database_url, "agent_runner");
+
     let run_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args(["agent", "record", "start", "--agent-kind", "m5-test"])
         .current_dir(tmp.path())
         .assert()
@@ -87,6 +101,14 @@ fn m5_agent_review_approve_denied_with_agent_run_id() {
 
     let delta_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args([
             "agent",
             "delta",
@@ -121,8 +143,18 @@ fn m5_agent_review_approve_denied_with_agent_run_id() {
         .stderr(predicate::str::contains("denied_actions"))
         .stderr(predicate::str::contains("review.approve"));
 
+    set_legacy_member_role(&database_url, "reviewer");
+
     kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
+        .env(
+            "KOTONOHA_PRINCIPAL_ID",
+            LegacyDefaults::PRINCIPAL_ID.to_string(),
+        )
+        .env(
+            "KOTONOHA_PROJECT_ID",
+            LegacyDefaults::PROJECT_ID.to_string(),
+        )
         .args([
             "review",
             "approve",

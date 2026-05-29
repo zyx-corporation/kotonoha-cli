@@ -2,7 +2,10 @@
 //!
 //! Requires `DATABASE_URL` and `git` (same as CI). Skips when `DATABASE_URL` is unset.
 
+mod common;
+
 use assert_cmd::Command;
+use common::rbac::set_legacy_member_role;
 use kotonoha_core::store::principals::LegacyDefaults;
 use serde_json::Value;
 
@@ -22,28 +25,6 @@ fn git_available() -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
-}
-
-/// M6 RBAC: legacy default principal needs `agent_runner` for `rde attach` (see m3 bootstrap).
-fn bootstrap_m2_rbac(database_url: &str) {
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
-    rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(database_url)
-            .await
-            .expect("connect");
-        sqlx::query(
-            r#"UPDATE project_members
-               SET role = 'agent_runner'
-               WHERE project_id = $1 AND principal_id = $2"#,
-        )
-        .bind(LegacyDefaults::PROJECT_ID)
-        .bind(LegacyDefaults::PRINCIPAL_ID)
-        .execute(&pool)
-        .await
-        .expect("agent_runner role");
-    });
 }
 
 fn init_git_repo(dir: &std::path::Path) {
@@ -94,7 +75,7 @@ fn m2_export_contract_after_attach_with_source_kind() {
         .assert()
         .success();
 
-    bootstrap_m2_rbac(&database_url);
+    set_legacy_member_role(&database_url, "agent_runner");
 
     let delta_out = kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
