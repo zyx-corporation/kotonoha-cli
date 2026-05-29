@@ -7,7 +7,9 @@ use kotonoha_core::semantic_lineage::{GitAnchor, MeaningDeltaInput};
 use kotonoha_core::store::AgentRunStatus;
 use serde_json::Value;
 
-use crate::capability::{default_start_input, deny_if_agent_context, is_denied_in_agent_context, PROFILE_AGENT};
+use crate::capability::{
+    default_start_input, deny_if_agent_context, is_denied_in_agent_context, PROFILE_AGENT,
+};
 
 #[derive(Subcommand)]
 pub enum AgentAction {
@@ -177,7 +179,10 @@ async fn cmd_agent_capability_check(action: &str, agent_run_id: uuid::Uuid) -> i
         "agent_run_id": agent_run_id,
         "capability_profile": profile,
     });
-    println!("{}", serde_json::to_string_pretty(&payload).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&payload).unwrap_or_default()
+    );
     0
 }
 

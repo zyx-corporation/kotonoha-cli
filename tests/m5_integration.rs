@@ -149,7 +149,8 @@ fn denied_actions_contain(run_id: Uuid, action: &str, database_url: &str) {
             .expect("run row");
         let arr = run.denied_actions.as_array().expect("denied_actions array");
         assert!(
-            arr.iter().any(|e| e.get("action").and_then(|v| v.as_str()) == Some(action)),
+            arr.iter()
+                .any(|e| e.get("action").and_then(|v| v.as_str()) == Some(action)),
             "expected denied_actions to contain {action:?}, got {arr:?}"
         );
     });
@@ -235,6 +236,8 @@ fn m5_agent_capability_check_allows_readonly_action() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("kotonoha.agent_capability_check.v0.1"))
+        .stdout(predicate::str::contains(
+            "kotonoha.agent_capability_check.v0.1",
+        ))
         .stdout(predicate::str::contains("\"allowed\": true"));
 }
