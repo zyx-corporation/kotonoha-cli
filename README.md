@@ -50,6 +50,7 @@ cargo build --release
 ./target/release/kotonoha version
 ./target/release/kotonoha rde emit
 ./target/release/kotonoha rde validate path/to/file.json
+DATABASE_URL=postgres://... ./target/release/kotonoha rde draft --delta-id <meaning-delta-uuid>
 ./target/release/kotonoha interchange emit
 ./target/release/kotonoha interchange validate path/to/envelope.json
 ```
@@ -58,6 +59,7 @@ Pipe JSON on stdin (omit path or use `-`):
 
 ```bash
 ./target/release/kotonoha rde emit | ./target/release/kotonoha rde validate
+DATABASE_URL=postgres://... ./target/release/kotonoha rde draft --delta-id <meaning-delta-uuid> | ./target/release/kotonoha rde validate --strict
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange validate
 ./target/release/kotonoha interchange emit | ./target/release/kotonoha interchange store
 ```

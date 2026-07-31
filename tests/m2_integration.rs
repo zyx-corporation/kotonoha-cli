@@ -103,8 +103,18 @@ fn m2_export_contract_after_attach_with_source_kind() {
         .to_string();
     assert!(!delta_id.is_empty());
 
-    let emit = kotonoha_cmd().args(["rde", "emit"]).assert().success();
-    let rde_json = emit.get_output().stdout.clone();
+    let draft = kotonoha_cmd()
+        .env("DATABASE_URL", &database_url)
+        .args(["rde", "draft", "--delta-id", &delta_id])
+        .assert()
+        .success();
+    let rde_json = draft.get_output().stdout.clone();
+
+    kotonoha_cmd()
+        .args(["rde", "validate", "--strict"])
+        .write_stdin(rde_json.clone())
+        .assert()
+        .success();
 
     kotonoha_cmd()
         .env("DATABASE_URL", &database_url)
@@ -167,4 +177,24 @@ fn m2_export_contract_after_attach_with_source_kind() {
         Some("0.1")
     );
     assert!(a.get("validation_report").is_some());
+    let payload = a.get("payload").expect("payload");
+    let subject_ref = format!("kotonoha:meaning_delta:{delta_id}");
+    assert_eq!(
+        payload["rde_review_output"]["subject_ref"].as_str(),
+        Some(subject_ref.as_str())
+    );
+    let preserved = payload["rde_review_output"]["categories"]["preserved"]
+        .as_array()
+        .expect("preserved");
+    assert_eq!(preserved[0]["summary"].as_str(), Some("intent"));
+    let policy = payload["rde_review_output"]["categories"]["next_update_policy"]
+        .as_array()
+        .expect("next_update_policy");
+    assert!(
+        policy[0]["summary"]
+            .as_str()
+            .unwrap_or("")
+            .contains("Human reviewer must validate"),
+        "draft must keep human-review boundary"
+    );
 }

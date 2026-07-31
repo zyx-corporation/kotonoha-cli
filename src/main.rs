@@ -206,6 +206,15 @@ enum RdeAction {
     },
     /// Emit a minimal compliant JSON skeleton (stdout).
     Emit,
+    /// Draft provider-neutral RDE candidate JSON from an existing MeaningDelta.
+    Draft {
+        /// Target `meaning_deltas.id` from `delta create`.
+        #[arg(long)]
+        delta_id: uuid::Uuid,
+        /// Include draft metadata wrapper; default emits raw RDE JSON that can be validated/attached.
+        #[arg(long)]
+        wrap: bool,
+    },
     /// Attach validated RDE JSON to an existing MeaningDelta (`rde_assessments` row).
     Attach {
         /// Target `meaning_deltas.id` from `delta create`.
@@ -265,6 +274,7 @@ async fn main() {
         Some(Commands::Rde { action }) => match action {
             RdeAction::Validate { strict, path } => cmd_rde_validate(strict, path.as_deref()),
             RdeAction::Emit => cmd_rde_emit(),
+            RdeAction::Draft { delta_id, wrap } => cmd_rde_draft(delta_id, wrap).await,
             RdeAction::Attach {
                 delta_id,
                 strict,
@@ -1128,6 +1138,141 @@ fn cmd_diff(path: &Path, file: Option<&Path>) -> i32 {
         let _ = writeln!(out);
     }
     0
+}
+
+async fn cmd_rde_draft(delta_id: uuid::Uuid, wrap: bool) -> i32 {
+    use kotonoha_core::store::postgres::StoreError;
+
+    let store = match pg_store().await {
+        Ok(s) => s,
+        Err(c) => return c,
+    };
+    let row = match store.get_meaning_delta(delta_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            eprintln!("meaning delta not found: {delta_id}");
+            return 2;
+        }
+        Err(StoreError::Sql(e)) => {
+            eprintln!("{}", e);
+            return 3;
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return store_error_code(&e);
+        }
+    };
+
+    let rde = build_rde_draft_payload(&row);
+    let out = if wrap {
+        let generated_at_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        serde_json::json!({
+            "rde_draft": {
+                "draft_version": "kotonoha.rde_draft.v0.1",
+                "state": "candidate",
+                "generated_at_unix": generated_at_unix,
+                "source": {
+                    "kind": "cli_scaffold",
+                    "meaning_delta_id": row.id,
+                    "project_id": row.project_id,
+                    "git_commit": row.git_commit,
+                    "file_path": row.file_path,
+                    "line_range_start": row.line_range_start,
+                    "line_range_end": row.line_range_end,
+                    "diff_ref": row.diff_ref,
+                },
+                "boundary": rde_draft_boundary(),
+                "rde_review_output": rde["rde_review_output"].clone()
+            }
+        })
+    } else {
+        rde
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&out).unwrap_or_else(|_| "{}".to_string())
+    );
+    0
+}
+
+fn build_rde_draft_payload(row: &kotonoha_core::store::postgres::MeaningDeltaRow) -> Value {
+    use kotonoha_core::observation_rde::RdeCategoryKey;
+
+    let subject_ref = format!("kotonoha:meaning_delta:{}", row.id);
+    let evidence_root = format!("{subject_ref}#observation");
+    let mut categories = serde_json::json!({
+        "preserved": [],
+        "transformed": [],
+        "complemented": [],
+        "intentionally_unresolved": [],
+        "lost": [],
+        "deviation_risk": [],
+        "next_update_policy": []
+    });
+
+    let hints = kotonoha_core::observation_rde::map_observation_to_rde_hints(&row.observation);
+    for hint in hints.hints {
+        let key = hint.category.as_str();
+        if let Some(arr) = categories.get_mut(key).and_then(|v| v.as_array_mut()) {
+            for summary in hint.hints {
+                arr.push(serde_json::json!({
+                    "summary": summary,
+                    "evidence_ref": format!("{evidence_root}.{}", hint.observation_key),
+                    "source_context_status": "supplied",
+                    "confidence_note": "Draft scaffolded from MeaningDelta observation; human review is required before approval."
+                }));
+            }
+        }
+    }
+
+    if !hints.unknown_keys.is_empty() {
+        let unresolved = categories
+            .get_mut(RdeCategoryKey::IntentionallyUnresolved.as_str())
+            .and_then(|v| v.as_array_mut())
+            .expect("intentionally_unresolved category");
+        unresolved.push(serde_json::json!({
+            "summary": format!(
+                "Observation keys not mapped to RDE categories: {}",
+                hints.unknown_keys.join(", ")
+            ),
+            "evidence_ref": evidence_root,
+            "source_context_status": "supplied",
+            "confidence_note": "Unknown observation keys were preserved as review prompts, not interpreted automatically."
+        }));
+    }
+
+    let policy = categories
+        .get_mut(RdeCategoryKey::NextUpdatePolicy.as_str())
+        .and_then(|v| v.as_array_mut())
+        .expect("next_update_policy category");
+    policy.push(serde_json::json!({
+        "summary": "Human reviewer must validate this draft before any approval decision; attach records evidence, not authority.",
+        "evidence_ref": subject_ref,
+        "source_context_status": "supplied",
+        "confidence_note": "Generated by kotonoha rde draft as provider-neutral assistance."
+    }));
+
+    serde_json::json!({
+        "rde_review_output": {
+            "spec_version": kotonoha_core::TARGET_SPEC_BUNDLE,
+            "subject_ref": subject_ref,
+            "categories": categories
+        }
+    })
+}
+
+fn rde_draft_boundary() -> Value {
+    serde_json::json!({
+        "human_review_required": true,
+        "validated": false,
+        "attached": false,
+        "reviewed": false,
+        "message": "RDE draft assistance is not approval and does not replace accountable human review."
+    })
 }
 
 async fn cmd_db_migrate() -> i32 {
