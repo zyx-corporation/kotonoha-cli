@@ -39,7 +39,7 @@ Subcommand groups:
 | --- | --- |
 | `kotonoha version` | Report CLI and targeted specification compatibility. |
 | `kotonoha db` | Apply **PostgreSQL** migrations shipped with `kotonoha-core` (requires `DATABASE_URL`). |
-| `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton). |
+| `kotonoha rde` | Operate on **RDE review output** interchange (validate JSON, emit skeleton, draft review candidates). |
 | `kotonoha interchange` | Validate / emit / **store** / **ingest** **core interchange envelope** JSON (`kotonoha.interchange.v1`) — bundles optional lineage +/or RDE for pipelines (**not** normative in `kotonoha-spec`). **`ingest`** (≥ **0.2.0**) accepts a **Phase 3** `console_event` wrapper (§4.1). |
 | `kotonoha init` | Create **`.kotonoha/config.toml`** in a Git repo (M1 workspace bootstrap). |
 | `kotonoha status` | Print Git context, project config, and optional DB summary (`DATABASE_URL`). |
@@ -61,6 +61,7 @@ Subcommand groups:
 | `kotonoha db migrate` | Reads **`DATABASE_URL`**, connects with SQLx, applies migrations from `kotonoha-core/migrations`. Missing env → exit **1**. Connection / migration failure → exit **3**. Success prints one confirmation line to stdout → exit **0**. |
 | `kotonoha rde validate [--strict] [PATH]` | Reads JSON from **PATH**, or from **stdin** when PATH is omitted or `-`. Validates Phase 1 interchange (`spec_version` **MUST** be `0.1`). Items missing `summary` emit **warnings** on stderr unless `--strict`, then exit **2**. Malformed args / unreadable file / invalid UTF-8 → exit **1**. Validation failure → exit **2**. Success → exit **0**. |
 | `kotonoha rde emit` | Writes a **minimal compliant** JSON skeleton (pretty-printed) to stdout. Exit **0**. |
+| `kotonoha rde draft --delta-id UUID [--wrap]` | Requires **`DATABASE_URL`**. Reads an existing **MeaningDelta** and scaffolds a provider-neutral RDE review candidate from its `observation` hints. Default output is raw RDE JSON (`rde_review_output`) so it can flow directly into `rde validate --strict` and `rde attach`. With `--wrap`, output is nested under **`rde_draft`** with source metadata and an explicit safety boundary. Missing **`DATABASE_URL`** → exit **1**. Unknown delta → exit **2**. DB failure → exit **3**. This command is **assistance only**: generated candidates do not approve, reject, or replace human review. |
 | `kotonoha interchange validate [--strict] [PATH]` | Validates **`kotonoha.interchange.v1`** envelope (`format`, `spec_bundle`, optional `lineage_unit`, optional `rde_document`). Nested RDE uses the same `--strict` semantics as `rde validate`. **Unknown JSON keys:** rejected when validation uses **`kotonoha_core`** **≥ 0.1.6** — only the four top‑level envelope properties are accepted; **`lineage_unit`** objects accept **`id` / `prior_unit_id` only** (serde `deny_unknown_fields`; exit **`2`** on failure). Exit codes identical pattern to `rde validate`. |
 | `kotonoha interchange store [--strict] [PATH]` | Reads envelope JSON (same IO rules as `validate`). Requires **`DATABASE_URL`**. Validates via `kotonoha_core::interchange`, then persists in **one transaction**: **`interchange_documents`** and (when present) derived **`lineage_units`** / **`rde_documents`** rows (`kotonoha_core::store::postgres::PgStore::insert_interchange_document_json`). Primary key UUID of the **`interchange_documents`** row is printed to **stdout**. Missing **`DATABASE_URL`** → exit **1**. Validation failure → exit **2**. Connection / persistence failure → exit **3**. Success → exit **0**. Run **`kotonoha db migrate`** first so tables exist. |
 | `kotonoha interchange emit` | Writes a **minimal lineage-only** envelope skeleton (pretty-printed) to stdout. Exit **0**. |
@@ -93,6 +94,26 @@ Subcommand groups:
 | --- | --- |
 | `kotonoha rde attach --delta-id UUID [--source-kind cli\|llm\|import\|replay] …` | Default **`--source-kind cli`**. Uses `PgStore::validate_and_attach_rde` (validation report stored; **`--strict`** rejects attach when interchange warnings exist). |
 | `kotonoha export … --format m2` | See M1 export row; M2 format ID **`kotonoha.m2_export.v0.1`**. Demo: [`scripts/m2_acceptance_demo.sh`](../scripts/m2_acceptance_demo.sh). |
+
+### M8 — RDE Draft Assistance (≥ **0.3.2**)
+
+`kotonoha rde draft` turns existing MeaningDelta observations into reviewable RDE candidate JSON. It is intentionally conservative:
+
+- it only maps known observation keys (`preserved`, `lost`, `transformed`, `unresolved` / `intentionally_unresolved`);
+- unknown observation keys are preserved as `intentionally_unresolved` prompts;
+- every generated item includes `summary`, `evidence_ref`, `source_context_status`, and `confidence_note`;
+- the output always includes `next_update_policy` reminding reviewers that attach records evidence, not authority.
+
+Recommended review loop:
+
+```bash
+kotonoha rde draft --delta-id "$DELTA_ID" \
+  | kotonoha rde validate --strict \
+  && kotonoha rde draft --delta-id "$DELTA_ID" \
+  | kotonoha rde attach --delta-id "$DELTA_ID" --strict --source-kind cli
+```
+
+Use `--wrap` when a channel needs draft provenance (`draft_version`, `source`, `boundary`) in addition to the RDE body.
 
 ### M4 — GitHub correlation (≥ **0.2.5**, `kotonoha_core` ≥ **0.1.10**)
 
@@ -227,3 +248,4 @@ The CLI **MUST NOT** be documented as replacing human judgment for publication, 
 | 2026-05-20 | **M1** `review`, `export` (**≥ 0.2.3**); closes CLI track for management#97 M1-f. |
 | 2026-05-22 | **M2** `rde attach --source-kind`, `export --format m2` (**≥ 0.2.4**); depends on core **0.1.9**. |
 | 2026-05-29 | **M7** integration profile [`m7-console-export-integration.md`](m7-console-export-integration.md); **`status`** M6 env lines (**≥ 0.3.1**). |
+| 2026-08-01 | **M8** `rde draft --delta-id [--wrap]` (**≥ 0.3.2**); provider-neutral RDE draft assistance with human-review boundary. |
